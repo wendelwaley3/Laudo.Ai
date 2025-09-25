@@ -635,76 +635,79 @@ function refreshDashboard() {
     const feats = filteredLotes();
     const totalLotesCount = feats.length;
 
-    let lotesRiscoAltoMuitoAlto = 0;
+    let lotesRiscoAltoMuitoAlto = 0; 
     let lotesAppCount = 0;
     let custoTotal = 0;
     let custoMin = Infinity;
     let custoMax = -Infinity;
     let riskCounts = { 'Baixo': 0, 'Médio': 0, 'Alto': 0, 'Muito Alto': 0 };
+    
+    // **NOVO**: Objeto para contar os tipos de uso
+    let tiposUsoCounts = {};
 
     feats.forEach(f => {
         const p = f.properties || {};
-        // Pega o valor de risco de múltiplas colunas possíveis e converte para string e minúsculas
-        const risco = String(p.risco || p.status_risco || p.grau || 'N/A').toLowerCase();
-
-        // **NOVA LÓGICA DE CONTAGEM DE RISCO**
-        // Primeiro, verifica se o risco é "geologico" ou "hidrologico" e os trata como risco ALTO por padrão
-        if (risco === 'geologico' || risco === 'hidrologico') {
-            riskCounts['Alto']++; // Classifica como Risco Alto
-        } 
-        // Se não for, verifica os outros valores
-        else if (risco === '1' || risco.includes('baixo')) {
-            riskCounts['Baixo']++;
-        } else if (risco === '2' || risco.includes('médio') || risco.includes('medio')) {
-            riskCounts['Médio']++;
-        } else if (risco === '3' || risco.includes('alto')) {
-            riskCounts['Alto']++;
-        } else if (risco === '4' || risco.includes('muito alto')) {
-            riskCounts['Muito Alto']++;
-        } else if (risco !== 'n/a' && risco !== 'null' && risco.trim() !== '') {
-            // Apenas mostra o aviso se o risco não for N/A, null ou vazio
-            console.warn(`Risco não mapeado encontrado: "${risco}" para lote`, p);
-        }
         
-        // Contagem para o card "Lotes em Risco" (Médio + Alto + Muito Alto)
-        // Inclui "geologico" e "hidrologico" como risco, e também médio
-        if (risco === '2' || risco === '3' || risco === '4' || risco.includes('médio') || risco.includes('medio') || risco.includes('alto') || risco === 'geologico' || risco === 'hidrologico') {
+        // Lógica de Risco
+        const risco = String(p.risco || p.status_risco || p.grau || '').trim().toLowerCase();
+        if (risco && risco !== 'n/a' && risco !== '') {
+            if (risco.includes('baixo') || risco === '1') riskCounts['Baixo']++;
+            else if (risco.includes('médio') || risco.includes('medio') || risco === '2') riskCounts['Médio']++;
+            else if (risco.includes('alto') && !risco.includes('muito') || risco === '3') riskCounts['Alto']++;
+            else if (risco.includes('muito alto') || risco === '4') riskCounts['Muito Alto']++;
+        }
+        if (risco.includes('alto') || risco === '3' || risco.includes('muito alto') || risco === '4') {
             lotesRiscoAltoMuitoAlto++;
         }
         
-        // Contagem de Lotes em APP
-        const dentroApp = Number(p.dentro_app || p.app || 0);
-        if (dentroApp > 0) {
-            lotesAppCount++;
-        }
+        // Lógica de APP
+        const dentroApp = Number(p.dentro_app || p.app || 0); 
+        if (dentroApp > 0) lotesAppCount++;
 
-        // Cálculo do Custo de Intervenção
-        const valorCusto = Number(p.valor || p.custo_intervencao || 0);
-        if (!isNaN(valorCusto) && valorCusto > 0) {
+        // Lógica de Custo de Intervenção
+        const valorCusto = Number(p.valor || p.custo_intervencao || 0); 
+        if (!isNaN(valorCusto) && valorCusto > 0) { 
             custoTotal += valorCusto;
             if (valorCusto < custoMin) custoMin = valorCusto;
             if (valorCusto > custoMax) custoMax = valorCusto;
         }
+
+        // **NOVO**: Lógica para contar Tipos de Uso
+        const tipoUso = p.tipo_uso || 'Não informado';
+        tiposUsoCounts[tipoUso] = (tiposUsoCounts[tipoUso] || 0) + 1;
     });
 
-    // Atualiza os elementos do HTML
+    // Atualiza os Cards do Dashboard
     document.getElementById('totalLotes').textContent = totalLotesCount;
-    document.getElementById('lotesRisco').textContent = lotesRiscoAltoMuitoAlto;
+    document.getElementById('lotesRisco').textContent = lotesRiscoAltoMuitoAlto; 
     document.getElementById('lotesApp').textContent = lotesAppCount;
-    document.getElementById('custoEstimado').textContent = formatBRL(custoTotal).replace('R$', '').trim();
+    document.getElementById('custoEstimado').textContent = formatBRL(custoTotal);
 
+    // Atualiza a Análise de Riscos (Listas Detalhadas)
     document.getElementById('riskLowCount').textContent = riskCounts['Baixo'];
     document.getElementById('riskMediumCount').textContent = riskCounts['Médio'];
     document.getElementById('riskHighCount').textContent = riskCounts['Alto'];
     document.getElementById('riskVeryHighCount').textContent = riskCounts['Muito Alto'];
 
-    document.getElementById('areasIdentificadas').textContent = lotesRiscoAltoMuitoAlto;
-    document.getElementById('areasIntervencao').textContent = lotesRiscoAltoMuitoAlto;
-
+    // Atualiza o Resumo de Intervenções
     document.getElementById('minCustoIntervencao').textContent = `Custo Mínimo de Intervenção: ${custoMin === Infinity ? 'N/D' : formatBRL(custoMin)}`;
     document.getElementById('maxCustoIntervencao').textContent = `Custo Máximo de Intervenção: ${custoMax === -Infinity ? 'N/D' : formatBRL(custoMax)}`;
-}
+    document.getElementById('areasIdentificadas').textContent = lotesRiscoAltoMuitoAlto; 
+    document.getElementById('areasIntervencao').textContent = lotesRiscoAltoMuitoAlto;
 
+    // **NOVO**: Preenche a lista de Análise de Tipos de Uso
+    const tiposUsoList = document.getElementById('tiposUsoSummary');
+    tiposUsoList.innerHTML = ''; // Limpa a lista
+    if (Object.keys(tiposUsoCounts).length > 0) {
+        for (const [tipo, count] of Object.entries(tiposUsoCounts)) {
+            const li = document.createElement('li');
+            li.textContent = `${tipo}: ${count} unidades`;
+            tiposUsoList.appendChild(li);
+        }
+    } else {
+        tiposUsoList.innerHTML = "<li>Nenhum dado de tipo de uso disponível. Verifique se a propriedade 'tipo_uso' existe nos seus lotes.</li>";
+    }
+}
 // ===================== Tabela de Lotes =====================
 function fillLotesTable() {
     console.log('fillLotesTable: Preenchendo tabela de lotes.');
