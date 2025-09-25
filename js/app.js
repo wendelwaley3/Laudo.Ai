@@ -695,13 +695,18 @@ function refreshDashboard() {
     document.getElementById('areasIdentificadas').textContent = lotesRiscoAltoMuitoAlto; 
     document.getElementById('areasIntervencao').textContent = lotesRiscoAltoMuitoAlto;
 
-    // **NOVO**: Preenche a lista de Análise de Tipos de Uso
+ 
+    // **NOVO E MELHORADO**: Preenche a lista de Análise de Tipos de Uso com contagem e porcentagem
     const tiposUsoList = document.getElementById('tiposUsoSummary');
     tiposUsoList.innerHTML = ''; // Limpa a lista
     if (Object.keys(tiposUsoCounts).length > 0) {
-        for (const [tipo, count] of Object.entries(tiposUsoCounts)) {
+        // Ordena os tipos de uso pela contagem, do maior para o menor, para destacar os predominantes
+        const sortedTiposUso = Object.entries(tiposUsoCounts).sort(([,a],[,b]) => b - a);
+
+        for (const [tipo, count] of sortedTiposUso) {
+            const percentage = totalLotesCount > 0 ? ((count / totalLotesCount) * 100).toFixed(1) : 0;
             const li = document.createElement('li');
-            li.textContent = `${tipo}: ${count} unidades`;
+            li.textContent = `${tipo}: ${count} unidades (${percentage}%)`;
             tiposUsoList.appendChild(li);
         }
     } else {
