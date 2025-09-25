@@ -163,13 +163,11 @@ function generateSimulatedAILaudo(promptData) {
 
     laudo += `**Análise Contextual:**\n`;
     laudo += `Baseado nos dados fornecidos e em conhecimentos gerais de REURB, a área apresenta características urbanísticas e fundiárias que demandam avaliação conforme a legislação. A infraestrutura básica e a regularidade documental são pontos cruciais para a consolidação da regularização.\n\n`;
-
     laudo += `**Recomendações:**\n`;
     laudo += `1. Verificação documental aprofundada dos títulos e matrículas.\n`;
     laudo += `2. Levantamento topográfico e cadastral detalhado para delimitação precisa dos lotes.\n`;
     laudo += `3. Análise ambiental para identificar e mitigar impactos, especialmente em áreas de preservação.\n`;
     laudo += `4. Planejamento de obras de infraestrutura quando necessário.\n\n`;
-
     laudo += `Este laudo é uma simulação e deve ser complementado por uma análise técnica e jurídica completa realizada por profissionais habilitados.\n\n`;
 
     return laudo;
@@ -530,7 +528,7 @@ function onEachAppFeature(feature, layer) {
 // Estilo da camada Poligonal (para tabela_geral e outros)
 function stylePoligonal(feature) {
     return {
-        color: '#2ecc71', // Verde para poligonais
+        color: '#2ecc73', // Verde para poligonais
         weight: 2,
         opacity: 0.7,
         fillOpacity: 0.2
@@ -642,41 +640,40 @@ function refreshDashboard() {
     let custoMax = -Infinity;
     let riskCounts = { 'Baixo': 0, 'Médio': 0, 'Alto': 0, 'Muito Alto': 0 };
     
-    // **NOVO**: Objeto para contar os tipos de uso
-    let tiposUsoCounts = {};
-
-    feats.forEach(f => {
+      feats.forEach(f => {
         const p = f.properties || {};
         
-        // Lógica de Risco
-        const risco = String(p.risco || p.status_risco || p.grau || '').trim().toLowerCase();
-        if (risco && risco !== 'n/a' && risco !== '') {
-            if (risco.includes('baixo') || risco === '1') riskCounts['Baixo']++;
-            else if (risco.includes('médio') || risco.includes('medio') || risco === '2') riskCounts['Médio']++;
-            else if (risco.includes('alto') && !risco.includes('muito') || risco === '3') riskCounts['Alto']++;
-            else if (risco.includes('muito alto') || risco === '4') riskCounts['Muito Alto']++;
-        }
-        if (risco.includes('alto') || risco === '3' || risco.includes('muito alto') || risco === '4') {
-            lotesRiscoAltoMuitoAlto++;
-        }
+        // --- LÓGICA DE RISCO CORRIGIDA PARA USAR 'grau' ---
+        const grauRisco = Number(p.grau); // Pega o valor da propriedade 'grau'
         
-        // Lógica de APP
+        if (!isNaN(grauRisco)) { // Verifica se 'grau' é um número válido
+            if (grauRisco === 1) {
+                riskCounts['Baixo']++;
+            } else if (grauRisco === 2) {
+                riskCounts['Médio']++;
+                lotesEmRiscoCount++; // Médio risco já conta como "em risco"
+            } else if (grauRisco === 3) {
+                riskCounts['Alto']++;
+                lotesEmRiscoCount++; // Alto risco conta como "em risco"
+            } else if (grauRisco >= 4) { // Maior ou igual a 4 é "Muito Alto"
+                riskCounts['Muito Alto']++;
+                lotesEmRiscoCount++; // Muito Alto risco conta como "em risco"
+            }
+        }
+        // --- FIM DA LÓGICA DE RISCO ---
+        
+        // Lógica de APP (baseada em 'dentro_app')
         const dentroApp = Number(p.dentro_app || p.app || 0); 
         if (dentroApp > 0) lotesAppCount++;
 
-        // Lógica de Custo de Intervenção
+        // Lógica de Custo de Intervenção (baseada em 'valor')
         const valorCusto = Number(p.valor || p.custo_intervencao || 0); 
         if (!isNaN(valorCusto) && valorCusto > 0) { 
             custoTotal += valorCusto;
             if (valorCusto < custoMin) custoMin = valorCusto;
             if (valorCusto > custoMax) custoMax = valorCusto;
         }
-
-        // **NOVO**: Lógica para contar Tipos de Uso
-        const tipoUso = p.tipo_uso || 'Não informado';
-        tiposUsoCounts[tipoUso] = (tiposUsoCounts[tipoUso] || 0) + 1;
     });
-
     // Atualiza os Cards do Dashboard
     document.getElementById('totalLotes').textContent = totalLotesCount;
     document.getElementById('lotesRisco').textContent = lotesRiscoAltoMuitoAlto; 
@@ -684,7 +681,7 @@ function refreshDashboard() {
     document.getElementById('custoEstimado').textContent = formatBRL(custoTotal);
     // ... (o restante da função refreshDashboard, incluindo a atualização dos cards, permanece o mesmo) ...
 
-    // Atualiza a Análise de Riscos (Lista Dinâmica)
+ // **CORREÇÃO AQUI**: Preenche a lista de Análise de Riscos dinamicamente
     const riskAnalysisList = document.getElementById('riskAnalysisSummary');
     riskAnalysisList.innerHTML = ''; // Limpa a lista
     const totalRiscos = Object.values(riskCounts).reduce((a, b) => a + b, 0);
@@ -692,25 +689,22 @@ function refreshDashboard() {
     if (totalRiscos > 0) {
         // Mapeia os nomes e classes para a exibição
         const riskMapping = {
-            'Baixo': { text: 'Baixo Risco (Grau 1)', class: 'risk-low' },
-            'Médio': { text: 'Médio Risco (Grau 2)', class: 'risk-medium' },
-            'Alto': { text: 'Alto Risco (Grau 3)', class: 'risk-high' },
-            'Muito Alto': { text: 'Muito Alto Risco (Grau 4)', class: 'risk-very-high' }
+            'Baixo': { text: 'Baixo Risco', class: 'risk-low' },
+            'Médio': { text: 'Médio Risco', class: 'risk-medium' },
+            'Alto': { text: 'Alto Risco', class: 'risk-high' },
+            'Muito Alto': { text: 'Muito Alto Risco', class: 'risk-very-high' }
         };
 
         // Itera sobre o objeto riskCounts na ordem correta
         for (const level of ['Baixo', 'Médio', 'Alto', 'Muito Alto']) {
             const count = riskCounts[level];
-            if (count > 0) { // Mostra apenas os níveis de risco que têm lotes
-                const percentage = totalLotesCount > 0 ? ((count / totalLotesCount) * 100).toFixed(1) : 0;
-                const li = document.createElement('li');
-                li.className = riskMapping[level].class; // Aplica a classe de cor do CSS
-                li.textContent = `${riskMapping[level].text}: ${count} lotes (${percentage}%)`;
-                riskAnalysisList.appendChild(li);
-            }
+            const li = document.createElement('li');
+            li.className = riskMapping[level].class; // Aplica a classe de cor do CSS
+            li.textContent = `${riskMapping[level].text}: ${count} lotes`;
+            riskAnalysisList.appendChild(li);
         }
     } else {
-        riskAnalysisList.innerHTML = "<li>Nenhum lote em risco identificado.</li>";
+        riskAnalysisList.innerHTML = "<li>Nenhum lote com risco classificado foi encontrado.</li>";
     }
     // FIM DA SUBSTITUIÇÃO
 
