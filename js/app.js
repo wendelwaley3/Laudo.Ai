@@ -682,12 +682,37 @@ function refreshDashboard() {
     document.getElementById('lotesRisco').textContent = lotesRiscoAltoMuitoAlto; 
     document.getElementById('lotesApp').textContent = lotesAppCount;
     document.getElementById('custoEstimado').textContent = formatBRL(custoTotal);
+    // ... (o restante da função refreshDashboard, incluindo a atualização dos cards, permanece o mesmo) ...
 
-    // Atualiza a Análise de Riscos (Listas Detalhadas)
-    document.getElementById('riskLowCount').textContent = riskCounts['Baixo'];
-    document.getElementById('riskMediumCount').textContent = riskCounts['Médio'];
-    document.getElementById('riskHighCount').textContent = riskCounts['Alto'];
-    document.getElementById('riskVeryHighCount').textContent = riskCounts['Muito Alto'];
+    // Atualiza a Análise de Riscos (Lista Dinâmica)
+    const riskAnalysisList = document.getElementById('riskAnalysisSummary');
+    riskAnalysisList.innerHTML = ''; // Limpa a lista
+    const totalRiscos = Object.values(riskCounts).reduce((a, b) => a + b, 0);
+
+    if (totalRiscos > 0) {
+        // Mapeia os nomes e classes para a exibição
+        const riskMapping = {
+            'Baixo': { text: 'Baixo Risco (Grau 1)', class: 'risk-low' },
+            'Médio': { text: 'Médio Risco (Grau 2)', class: 'risk-medium' },
+            'Alto': { text: 'Alto Risco (Grau 3)', class: 'risk-high' },
+            'Muito Alto': { text: 'Muito Alto Risco (Grau 4)', class: 'risk-very-high' }
+        };
+
+        // Itera sobre o objeto riskCounts na ordem correta
+        for (const level of ['Baixo', 'Médio', 'Alto', 'Muito Alto']) {
+            const count = riskCounts[level];
+            if (count > 0) { // Mostra apenas os níveis de risco que têm lotes
+                const percentage = totalLotesCount > 0 ? ((count / totalLotesCount) * 100).toFixed(1) : 0;
+                const li = document.createElement('li');
+                li.className = riskMapping[level].class; // Aplica a classe de cor do CSS
+                li.textContent = `${riskMapping[level].text}: ${count} lotes (${percentage}%)`;
+                riskAnalysisList.appendChild(li);
+            }
+        }
+    } else {
+        riskAnalysisList.innerHTML = "<li>Nenhum lote em risco identificado.</li>";
+    }
+    // FIM DA SUBSTITUIÇÃO
 
     // Atualiza o Resumo de Intervenções
     document.getElementById('minCustoIntervencao').textContent = `Custo Mínimo de Intervenção: ${custoMin === Infinity ? 'N/D' : formatBRL(custoMin)}`;
