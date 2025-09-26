@@ -209,65 +209,129 @@ function generateSimulatedAILaudo(promptData) {
     return laudo;
 }
 
-// ===================== Inicialização do Mapa Leaflet =====================
+// ===================== Inicialização do Mapa =====================
 function initMap() {
-    console.log('initMap: Iniciando mapa Leaflet...'); 
-    state.map = L.map('mapid').setView([-15.7801, -47.9292], 5); // Centraliza no Brasil
+    state.map = L.map('mapid').setView([-15.7801, -47.9292], 5);
+    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 20, attribution: '&copy; OpenStreetMap' });
+    osmLayer.addTo(state.map);
+    const esriWorldImagery = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18, attribution: 'Tiles &copy; Esri' });
+    L.control.layers({ "OpenStreetMap": osmLayer, "Satélite": esriWorldImagery }).addTo(state.map);
 
-    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 20,
-        attribution: '&copy; OpenStreetMap contributors'
-    });
-    osmLayer.addTo(state.map); 
+    state.map.createPane('poligonalPane').style.zIndex = 450;
+    state.map.createPane('lotesPane').style.zIndex = 500;
+    state.map.createPane('appPane').style.zIndex = 550;
+    state.map.createPane('riscoPane').style.zIndex = 600;
 
-    const esriWorldImagery = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        maxZoom: 18, 
-        attribution: 'Tiles &copy; Esri'
-    });
-
-    const baseMaps = {
-        "OpenStreetMap": osmLayer,
-        "Esri World Imagery (Satélite)": esriWorldImagery 
-    };
-    L.control.layers(baseMaps).addTo(state.map); 
-
-    // **CORREÇÃO AQUI**: Adiciona um painel específico para cada camada para controlar a ordem (z-index)
-    state.map.createPane('poligonalPane');
-    state.map.getPane('poligonalPane').style.zIndex = 450; // Mais baixo
-    state.map.createPane('lotesPane');
-    state.map.getPane('lotesPane').style.zIndex = 500; // Meio
-    state.map.createPane('appPane');
-    state.map.getPane('appPane').style.zIndex = 550; // Mais alto
-
-    // Inicializa os FeatureGroups vazios
     state.layers.poligonais = L.featureGroup([], { pane: 'poligonalPane' }).addTo(state.map);
     state.layers.lotes = L.featureGroup([], { pane: 'lotesPane' }).addTo(state.map);
-    state.layers.app = L.featureGroup([], { pane: 'appPane' }).addTo(state.map); 
-
-    state.map.invalidateSize(); 
-}
-    // Controle de camadas base para o usuário escolher o basemap
-    const baseMaps = {
-        "OpenStreetMap": osmLayer,
-        "Esri World Imagery (Satélite)": esriWorldImagery 
-    };
-    L.control.layers(baseMaps).addTo(state.map); 
-    console.log('initMap: Controle de camadas base adicionado.'); 
-
-    // Inicializa os FeatureGroups vazios e os adiciona ao mapa
-    state.layers.lotes = L.featureGroup().addTo(state.map);
-    state.layers.app = L.featureGroup().addTo(state.map); 
-    state.layers.poligonais = L.featureGroup().addTo(state.map); 
-
-    // Remove as camadas APP e Poligonais do mapa por padrão, para que o usuário as ative pela legenda
-    state.map.removeLayer(state.layers.app);
-    state.map.removeLayer(state.layers.poligonais);
-
-    // Garante que o mapa renderize corretamente após estar visível no DOM
-    state.map.invalidateSize(); 
-    console.log('initMap: invalidateSize() chamado.'); 
+    state.layers.app = L.featureGroup([], { pane: 'appPane' }).addTo(state.map);
+    state.layers.risco = L.featureGroup([], { pane: 'riscoPane' }).addTo(state.map);
 }
 
+// ===================== Navegação, Upload e Processamento =====================
+function initNav() {
+    document.querySelectorAll('nav a').forEach(link => {
+        link.addEventListener('click', e => {
+            e.preventDefault();
+            const targetId = link.getAttribute('data-section');
+            document.querySelectorAll('main section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('nav a').forEach(l => l.classList.remove('active'));
+            document.getElementById(targetId).classList.add('active');
+            link.classList.add('active');
+            if (targetId === 'dashboard' && state.map) state.map.invalidateSize();
+        });
+    });
+}
+
+function initUpload() {
+    const fileInput = document.getElementById('geojsonFileInput');
+    const selectBtn = document.getElementById('selectFilesVisibleButton');
+    const processBtn = document.getElementById('processAndLoadBtn');
+    const fileListEl = document.getElementById('fileList');
+    const statusEl = document.getElementById('uploadStatus');
+    const useUtmCheck = document.getElementById('useUtmCheckbox');
+
+    if (selectBtn) selectBtn.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', () => {
+        fileListEl.innerHTML = Array.from(fileInput.files).map(f => `<li>${f.name}</li>`).join('') || '<li>Nenhum arquivo selecionado.</li>';
+    });
+
+    processBtn.addEventListener('click', async () => {
+        const files = Array.from(fileInput.files || []);
+        if (files.length === 0) {
+            statusEl.textContent = 'Nenhum arquivo selecionado.';
+            statusEl.className = 'status-message error';
+            return;
+        }
+        statusEl.textContent = 'Processando...';
+        statusEl.className = 'status-message info';
+
+        // Limpa estado anterior
+        Object.values(state.layers).forEach(layer => layer.clearLayers());
+        state.allLotes = [];
+        state.allRisco = [];
+        state.nucleusSet.clear();
+
+        try {
+            for (const file of files) {
+                const text = await file.text();
+                let geojsonData = JSON.parse(text);
+
+                if (useUtmCheck.checked) {
+                    const zone = document.getElementById('utmZoneInput').value;
+                    const south = document.getElementById('utmHemisphereSelect').value === 'S';
+                    geojsonData = reprojectGeoJSONFromUTM(geojsonData, zone, south);
+                }
+
+                const name = file.name.toLowerCase();
+                if (name.includes('risco')) {
+                    state.allRisco.push(...geojsonData.features);
+                } else if (name.includes('lote')) {
+                    state.allLotes.push(...geojsonData.features);
+                } else if (name.includes('app')) {
+                    L.geoJSON(geojsonData, { style: styleApp, onEachFeature: onEachAppFeature }).addTo(state.layers.app);
+                } else if (name.includes('poligonal')) {
+                    L.geoJSON(geojsonData, { style: stylePoligonal, onEachFeature: onEachPoligonalFeature }).addTo(state.layers.poligonais);
+                }
+            }
+            
+            // Combina lotes e dados de risco
+            const lotesMap = new Map();
+            state.allLotes.forEach(lote => lotesMap.set(lote.properties.cod_lote, lote));
+            state.allRisco.forEach(riscoLote => {
+                const codLote = riscoLote.properties.cod_lote;
+                if (lotesMap.has(codLote)) {
+                    Object.assign(lotesMap.get(codLote).properties, riscoLote.properties);
+                } else {
+                    lotesMap.set(codLote, riscoLote);
+                }
+            });
+            state.allLotes = Array.from(lotesMap.values());
+
+            // Popula camada de lotes e extrai núcleos
+            L.geoJSON(state.allLotes, { style: styleLote, onEachFeature: onEachLoteFeature }).addTo(state.layers.lotes);
+            state.allLotes.forEach(f => {
+                if (f.properties.desc_nucleo) state.nucleusSet.add(f.properties.desc_nucleo);
+            });
+
+            const allLayersGroup = L.featureGroup(Object.values(state.layers));
+            if (allLayersGroup.getLayers().length > 0) state.map.fitBounds(allLayersGroup.getBounds(), { padding: [20, 20] });
+
+            populateNucleusFilter();
+            refreshDashboard();
+            fillLotesTable();
+            setupRiskFilter();
+
+            statusEl.textContent = 'Dados carregados com sucesso!';
+            statusEl.className = 'status-message success';
+        } catch (e) {
+            statusEl.textContent = `Erro: ${e.message}`;
+            statusEl.className = 'status-message error';
+            console.error(e);
+        }
+    });
+}
 // ===================== Navegação entre Seções =====================
 function initNav() {
     document.querySelectorAll('nav a').forEach(link => {
@@ -301,7 +365,7 @@ function initNav() {
     });
 }
 
-// ===================== Gerenciamento de Upload e Processamento de GeoJSON =====================
+/ ===================== Gerenciamento de Upload e Processamento de GeoJSON =====================
 function initUpload() {
     console.log('initUpload: Configurando upload de arquivos...'); 
     const fileInput = document.getElementById('geojsonFileInput');
