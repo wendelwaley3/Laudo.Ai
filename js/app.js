@@ -411,27 +411,37 @@ function initUpload() {
                 state.nucleusSet.add(f.properties.desc_nucleo);
             }
         });
-        
-         // Adiciona as feições aos FeatureGroups do Leaflet para exibição no mapa
-        L.geoJSON(newAPPFeatures, { onEachFeature: onEachAppFeature, style: styleApp }).addTo(state.layers.app);
-        L.geoJSON(newPoligonaisFeatures, { onEachFeature: onEachPoligonalFeature, style: stylePoligonal }).addTo(state.layers.poligonais);
-        L.geoJSON(state.allLotes, { onEachFeature: onEachLoteFeature, style: styleLote }).addTo(state.layers.lotes);
-
-        // Ajusta o mapa para a extensão de todos os dados carregados
-        const allLayersGroup = L.featureGroup([state.layers.lotes, state.layers.app, state.layers.poligonais]);
-        if (allLayersGroup.getLayers().length > 0) {
-            try { 
-                state.map.fitBounds(allLayersGroup.getBounds(), { padding: [20, 20] }); 
-                console.log('Mapa ajustado para os bounds dos dados carregados.');
-            } catch (e) {
-                console.warn("Não foi possível ajustar o mapa aos bounds. Verifique as coordenadas dos seus GeoJSONs.", e);
+                 // **LÓGICA DE CATEGORIZAÇÃO REFINADA**
+                const fileNameLower = file.name.toLowerCase();
+                if (fileNameLower.includes('risco')) {
+                    // Lotes de risco são adicionados à lista principal de lotes
+                    allLotesGeoJSON.features.push(...geojsonData.features);
+                } else if (fileNameLower.includes('lote')) {
+                    allLotesGeoJSON.features.push(...geojsonData.features);
+                } else if (fileNameLower.includes('app')) {
+                    allAPPGeoJSON.features.push(...geojsonData.features);
+                } else if (fileNameLower.includes('poligonal')) {
+                    allPoligonaisGeoJSON.features.push(...geojsonData.features);
+                } else {
+                    // Arquivos não reconhecidos (como tabela_geral) podem ser adicionados às poligonais ou ignorados
+                    allPoligonaisGeoJSON.features.push(...geojsonData.features);
+                }
             }
-        } else {
-            state.map.setView([-15.7801, -47.9292], 5); // Centraliza no Brasil se não houver dados
-            console.log('Nenhum dado carregado, mapa centralizado no Brasil.');
-        }
 
-        // Adiciona as feições aos FeatureGroups do Leaflet para exibição no mapa
+            // Processa todos os lotes coletados para filtros e dashboard
+            state.allLotes = allLotesGeoJSON.features;
+            state.allLotes.forEach(f => {
+                if (f.properties && f.properties.desc_nucleo) {
+                    state.nucleusSet.add(f.properties.desc_nucleo);
+            
+        } catch (error) {
+            console.error('Erro CRÍTICO durante o processamento:', error);
+            uploadStatus.textContent = `Erro: ${error.message}.`;
+            uploadStatus.className = 'status-message error';
+        }
+    });
+}
+            // Adiciona as feições aos FeatureGroups do Leaflet para exibição no mapa
         L.geoJSON(newAPPFeatures, { onEachFeature: onEachAppFeature, style: styleApp }).addTo(state.layers.app);
         L.geoJSON(newPoligonaisFeatures, { onEachFeature: onEachPoligonalFeature, style: stylePoligonal }).addTo(state.layers.poligonais);
         L.geoJSON(state.allLotes, { onEachFeature: onEachLoteFeature, style: styleLote }).addTo(state.layers.lotes);
@@ -461,135 +471,7 @@ function initUpload() {
         console.log('Todos os arquivos processados e dados carregados no mapa e dashboard.'); 
     });
 }
-// ===================== Gerenciamento de Upload e Processamento de GeoJSON =====================
-function initUpload() {
-    console.log('initUpload: Configurando upload de arquivos...'); 
-    const fileInput = document.getElementById('geojsonFileInput');
-    const dragDropArea = document.querySelector('.drag-drop-area');
-    const fileListElement = document.getElementById('fileList');
-    const processAndLoadBtn = document.getElementById('processAndLoadBtn');
-    const uploadStatus = document.getElementById('uploadStatus');
 
-    const selectFilesVisibleButton = document.getElementById('selectFilesVisibleButton');
-    const useUtmCheckbox = document.getElementById('useUtmCheckbox');
-    const utmOptionsContainer = document.getElementById('utmOptionsContainer');
-    const utmZoneInput = document.getElementById('utmZoneInput');
-    const utmHemisphereSelect = document.getElementById('utmHemisphereSelect');
-
-    useUtmCheckbox.addEventListener('change', () => {
-        state.utmOptions.useUtm = useUtmCheckbox.checked;
-        utmOptionsContainer.style.display = useUtmCheckbox.checked ? 'flex' : 'none';
-    });
-    utmZoneInput.addEventListener('input', () => { 
-        state.utmOptions.zone = Number(utmZoneInput.value) || 23; 
-    });
-    utmHemisphereSelect.addEventListener('change', () => { 
-        state.utmOptions.south = (utmHemisphereSelect.value === 'S'); 
-    });
-
-    if (selectFilesVisibleButton && fileInput) {
-        selectFilesVisibleButton.addEventListener('click', () => {
-            fileInput.click();
-        });
-    }
-
-    fileInput.addEventListener('change', (e) => {
-        const selectedFilesArray = Array.from(e.target.files);
-        fileListElement.innerHTML = '';
-        if (selectedFilesArray.length > 0) {
-            selectedFilesArray.forEach(file => {
-                const li = document.createElement('li');
-                li.textContent = file.name;
-                fileListElement.appendChild(li);
-            });
-        } else {
-            fileListElement.innerHTML = '<li>Nenhum arquivo selecionado.</li>';
-        }
-    });
-
-    dragDropArea.addEventListener('dragover', (e) => { e.preventDefault(); dragDropArea.classList.add('dragging'); });
-    dragDropArea.addEventListener('dragleave', () => { dragDropArea.classList.remove('dragging'); });
-    dragDropArea.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dragDropArea.classList.remove('dragging');
-        const droppedFiles = Array.from(e.dataTransfer.files).filter(file => file.name.endsWith('.geojson') || file.name.endsWith('.json'));
-        const dataTransfer = new DataTransfer();
-        droppedFiles.forEach(file => dataTransfer.items.add(file));
-        fileInput.files = dataTransfer.files;
-        fileInput.dispatchEvent(new Event('change'));
-    });
-
-    processAndLoadBtn.addEventListener('click', async () => {
-        const filesToProcess = Array.from(fileInput.files || []);
-        if (filesToProcess.length === 0) {
-            uploadStatus.textContent = 'Nenhum arquivo para processar.';
-            uploadStatus.className = 'status-message error';
-            return;
-        }
-
-        uploadStatus.textContent = 'Processando e carregando dados...';
-        uploadStatus.className = 'status-message info';
-
-        // Limpa estado e camadas
-        state.allLotes = [];
-        state.nucleusSet.clear();
-        allAPPGeoJSON.features = [];
-        allPoligonaisGeoJSON.features = [];
-
-        try {
-            for (const file of filesToProcess) {
-                const reader = new FileReader();
-                const fileContent = await new Promise((resolve, reject) => {
-                    reader.onload = (e) => resolve(e.target.result);
-                    reader.onerror = (e) => reject(new Error(`Falha ao ler o arquivo ${file.name}`));
-                    reader.readAsText(file);
-                });
-                let geojsonData = JSON.parse(fileContent);
-
-                if (state.utmOptions.useUtm) {
-                    geojsonData = reprojectGeoJSONFromUTM(geojsonData, state.utmOptions.zone, state.utmOptions.south);
-                }
-
-                // **LÓGICA DE CATEGORIZAÇÃO REFINADA**
-                const fileNameLower = file.name.toLowerCase();
-                if (fileNameLower.includes('risco')) {
-                    // Lotes de risco são adicionados à lista principal de lotes
-                    allLotesGeoJSON.features.push(...geojsonData.features);
-                } else if (fileNameLower.includes('lote')) {
-                    allLotesGeoJSON.features.push(...geojsonData.features);
-                } else if (fileNameLower.includes('app')) {
-                    allAPPGeoJSON.features.push(...geojsonData.features);
-                } else if (fileNameLower.includes('poligonal')) {
-                    allPoligonaisGeoJSON.features.push(...geojsonData.features);
-                } else {
-                    // Arquivos não reconhecidos (como tabela_geral) podem ser adicionados às poligonais ou ignorados
-                    allPoligonaisGeoJSON.features.push(...geojsonData.features);
-                }
-            }
-
-            // Processa todos os lotes coletados para filtros e dashboard
-            state.allLotes = allLotesGeoJSON.features;
-            state.allLotes.forEach(f => {
-                if (f.properties && f.properties.desc_nucleo) {
-                    state.nucleusSet.add(f.properties.desc_nucleo);
-                }
-            });
-
-            renderLayersOnMap(); // Renderiza as camadas agora separadas
-            populateNucleusFilter();
-            refreshDashboard();
-            fillLotesTable();
-
-            uploadStatus.textContent = 'Dados carregados com sucesso!';
-            uploadStatus.className = 'status-message success';
-
-        } catch (error) {
-            console.error('Erro CRÍTICO durante o processamento:', error);
-            uploadStatus.textContent = `Erro: ${error.message}.`;
-            uploadStatus.className = 'status-message error';
-        }
-    });
-}
 // ===================== Estilos e Popups das Camadas Geoespaciais =====================
 
 // Estilo para a camada principal de LOTES
