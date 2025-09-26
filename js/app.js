@@ -314,6 +314,31 @@ function populateNucleusFilter() {
     });
 }
 
+// ===================== Ponto de Entrada Principal =====================
+document.addEventListener('DOMContentLoaded', () => {
+    initMap(); 
+    initNav(); 
+    initUpload(); 
+    
+    // Configura listeners para os botões de filtro e relatório
+    document.getElementById('applyFiltersBtn').addEventListener('click', () => {
+        state.currentNucleusFilter = document.getElementById('nucleusFilter').value; 
+        refreshDashboard();
+        fillLotesTable();
+    });
+
+    document.getElementById('nucleusFilter').addEventListener('change', () => {
+        state.currentNucleusFilter = document.getElementById('nucleusFilter').value; 
+        refreshDashboard();
+        fillLotesTable();
+    });
+
+    // Outros listeners (relatório, etc.) podem ser adicionados aqui
+
+    // Estado inicial
+    document.getElementById('dashboard').classList.add('active');
+    document.querySelector('nav a[data-section="dashboard"]').classList.add('active');
+});
 // ===================== Simulações de IBGE e IA (para ambiente client-side) =====================
 // Estas funções substituem as chamadas ao backend Flask no ambiente de produção do GitHub Pages.
 
