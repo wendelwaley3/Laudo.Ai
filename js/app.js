@@ -1,136 +1,317 @@
-
 // ===================== Estado Global do Aplicativo =====================
-// Centraliza variáveis de estado para facilitar a organização e manutenção.
 const state = {
     map: null,
-    layers: { // FeatureGroups para gerenciar as camadas do Leaflet
-        lotes: null, // Será inicializado como L.featureGroup() em initMap
-        app: null,   // Será inicializado como L.featureGroup() em initMap
-        poligonais: null // Será inicializado como L.featureGroup() em initMap
+    layers: {
+        lotes: null,
+        app: null,
+        risco: null,
+        poligonais: null
     },
-    allLotes: [],           // Array de todas as feições de lotes carregadas
-    nucleusSet: new Set(),  // Set para armazenar nomes de núcleos únicos
-    currentNucleusFilter: 'all', // Núcleo selecionado no filtro do Dashboard
-    utmOptions: { useUtm: false, zone: 23, south: true }, // Configurações para reprojeção UTM client-side
-    generalProjectInfo: {}, // Informações gerais do projeto (preenchimento manual)
-    lastReportText: '',     // Último relatório gerado (para exportação)
+    allLotes: [],
+    allRisco: [],
+    nucleusSet: new Set(),
+    currentNucleusFilter: 'all',
+    utmOptions: { useUtm: false, zone: 23, south: true },
+    generalProjectInfo: {},
+    lastReportText: '',
 };
-// ===================== Inicialização do Mapa Leaflet =====================
-
-// --- Função duplicada removida automaticamente ---
 
 // ===================== Utilidades Diversas =====================
-
-/** Formata um número para moeda BRL. */
 function formatBRL(n) {
-    const v = Number(n || 0);
-    return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    return Number(n || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
-
-/** Inicia o download de um arquivo de texto. */
 
 function downloadText(filename, text) {
     const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = filename || 'download.txt';
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 }
-);
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    URL.revokeObjectURL(url); // Libera o objeto URL
-}
 
-/** Calcula a área de uma feature usando Turf.js. */
-function featureAreaM2(feature) {
-    try {
-        // Turf.area retorna em metros quadrados se a projeção for WGS84
-        return turf.area(feature);
-    } catch (e) {
-        console.warn('Erro ao calcular área com Turf.js:', e);
-        return 0;
-    }
-}
-
-/** Garante que um anel de polígono seja fechado (primeiro e último ponto iguais). */
 function ensurePolygonClosed(coords) {
     if (!coords || coords.length === 0) return coords;
     const first = coords[0];
     const last = coords[coords.length - 1];
-    // Se o primeiro e o último ponto não são iguais, adiciona o primeiro no final
     if (first[0] !== last[0] || first[1] !== last[1]) {
         coords.push(first);
     }
     return coords;
 }
 
-// ===================== Reprojeção UTM → WGS84 (client-side com proj4js) =====================
-// Esta seção permite que o app tente reprojetar GeoJSONs em UTM, se necessário.
-
-/** Converte um ponto UTM (x,y) para Lat/Lng (WGS84). */
+// ===================== Reprojeção UTM → WGS84 =====================
 function utmToLngLat(x, y, zone, south) {
-    // Definição dinâmica da projeção UTM (ex: SIRGAS 2000 / UTM zone 23S)
+    if (isNaN(x) || isNaN(y)) return null;
     const def = `+proj=utm +zone=${Number(zone)} ${south ? '+south ' : ''}+datum=WGS84 +units=m +no_defs`;
-    // Retorna [longitude, latitude]
-    const p = proj4(def, proj4.WGS84, [x, y]);
-    return [p[0], p[1]]; 
+    return proj4(def, proj4.WGS84, [x, y]);
 }
 
-/**
- * Converte um GeoJSON inteiro de UTM para WGS84.
- * Percorre as geometrias e aplica a conversão de coordenadas.
- * @param {object} geojson - O objeto GeoJSON (FeatureCollection, Feature, ou Geometry).
- * @param {number} zone - A zona UTM (1-60).
- * @param {boolean} south - True se for hemisfério Sul, False se Norte.
- * @returns {object} Um novo objeto GeoJSON com coordenadas em WGS84.
- */
 function reprojectGeoJSONFromUTM(geojson, zone, south) {
-    // Cria uma cópia profunda para não modificar o objeto original.
-    const converted = JSON.parse(JSON.stringify(geojson)); 
-
-    function convertGeometryCoords(coords, geomType) {
+    const converted = JSON.parse(JSON.stringify(geojson));
+    const convertGeometryCoords = (coords, geomType) => {
         if (!coords || coords.length === 0) return coords;
-
-        if (geomType === 'Point') {
-            return utmToLngLat(coords[0], coords[1], zone, south);
-        } else if (geomType === 'LineString' || geomType === 'MultiPoint') {
-            return coords.map(coord => utmToLngLat(coord[0], coord[1], zone, south));
-        } else if (geomType === 'Polygon') {
-            return coords.map(ring => ensurePolygonClosed(ring.map(coord => utmToLngLat(coord[0], coord[1], zone, south))));
-        } else if (geomType === 'MultiLineString') {
-            return coords.map(line => line.map(coord => utmToLngLat(coord[0], coord[1], zone, south)));
-        } else if (geomType === 'MultiPolygon') {
-            return coords.map(polygon => 
-                polygon.map(ring => ensurePolygonClosed(ring.map(coord => utmToLngLat(coord[0], coord[1], zone, south))))
-            );
-        }
-        return coords; // Retorna as coordenadas originais para tipos não mapeados
-    }
-
+        try {
+            if (geomType === 'Point') return utmToLngLat(coords[0], coords[1], zone, south);
+            if (geomType === 'LineString' || geomType === 'MultiPoint') return coords.map(c => utmToLngLat(c[0], c[1], zone, south)).filter(Boolean);
+            if (geomType === 'Polygon') return coords.map(ring => ensurePolygonClosed(ring.map(c => utmToLngLat(c[0], c[1], zone, south)).filter(Boolean)));
+            if (geomType === 'MultiLineString') return coords.map(line => line.map(c => utmToLngLat(c[0], c[1], zone, south)).filter(Boolean));
+            if (geomType === 'MultiPolygon') return coords.map(poly => poly.map(ring => ensurePolygonClosed(ring.map(c => utmToLngLat(c[0], c[1], zone, south)).filter(Boolean))));
+        } catch (e) { return null; }
+        return coords;
+    };
     if (converted.type === 'FeatureCollection') {
-        converted.features = converted.features.map(feature => {
-            if (feature.geometry) {
-                feature.geometry.coordinates = convertGeometryCoords(feature.geometry.coordinates, feature.geometry.type);
-            }
-            return feature;
+        converted.features.forEach(f => {
+            if (f.geometry) f.geometry.coordinates = convertGeometryCoords(f.geometry.coordinates, f.geometry.type);
         });
-    } else if (converted.type === 'Feature') {
-        if (converted.geometry) {
-            converted.geometry.coordinates = convertGeometryCoords(converted.geometry.coordinates, converted.geometry.type);
-        }
-    } else { // Assume que é um objeto de geometria
-        converted.coordinates = convertGeometryCoords(converted.coordinates, converted.type);
     }
-
     return converted;
+}
+
+// ===================== Inicialização do Mapa =====================
+function initMap() {
+    state.map = L.map('mapid').setView([-15.7801, -47.9292], 5);
+    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 20, attribution: '&copy; OpenStreetMap' });
+    osmLayer.addTo(state.map);
+    const esriWorldImagery = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18, attribution: 'Tiles &copy; Esri' });
+    L.control.layers({ "OpenStreetMap": osmLayer, "Satélite": esriWorldImagery }).addTo(state.map);
+
+    state.map.createPane('poligonalPane').style.zIndex = 450;
+    state.map.createPane('lotesPane').style.zIndex = 500;
+    state.map.createPane('appPane').style.zIndex = 550;
+    state.map.createPane('riscoPane').style.zIndex = 600;
+
+    state.layers.poligonais = L.featureGroup([], { pane: 'poligonalPane' }).addTo(state.map);
+    state.layers.lotes = L.featureGroup([], { pane: 'lotesPane' }).addTo(state.map);
+    state.layers.app = L.featureGroup([], { pane: 'appPane' }).addTo(state.map);
+    state.layers.risco = L.featureGroup([], { pane: 'riscoPane' }).addTo(state.map);
+}
+
+// ===================== Navegação, Upload e Processamento =====================
+function initNav() {
+    document.querySelectorAll('nav a').forEach(link => {
+        link.addEventListener('click', e => {
+            e.preventDefault();
+            const targetId = link.getAttribute('data-section');
+            document.querySelectorAll('main section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('nav a').forEach(l => l.classList.remove('active'));
+            document.getElementById(targetId).classList.add('active');
+            link.classList.add('active');
+            if (targetId === 'dashboard' && state.map) state.map.invalidateSize();
+        });
+    });
+}
+
+function initUpload() {
+    const fileInput = document.getElementById('geojsonFileInput');
+    const selectBtn = document.getElementById('selectFilesVisibleButton');
+    const processBtn = document.getElementById('processAndLoadBtn');
+    const fileListEl = document.getElementById('fileList');
+    const statusEl = document.getElementById('uploadStatus');
+    const useUtmCheck = document.getElementById('useUtmCheckbox');
+
+    if (selectBtn) selectBtn.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', () => {
+        fileListEl.innerHTML = Array.from(fileInput.files).map(f => `<li>${f.name}</li>`).join('') || '<li>Nenhum arquivo selecionado.</li>';
+    });
+
+    processBtn.addEventListener('click', async () => {
+        const files = Array.from(fileInput.files || []);
+        if (files.length === 0) {
+            statusEl.textContent = 'Nenhum arquivo selecionado.';
+            statusEl.className = 'status-message error';
+            return;
+        }
+        statusEl.textContent = 'Processando...';
+        statusEl.className = 'status-message info';
+
+        Object.values(state.layers).forEach(layer => layer.clearLayers());
+        state.allLotes = [];
+        state.allRisco = [];
+        state.nucleusSet.clear();
+
+        try {
+            for (const file of files) {
+                const text = await file.text();
+                let geojsonData = JSON.parse(text);
+
+                if (useUtmCheck.checked) {
+                    const zone = document.getElementById('utmZoneInput').value;
+                    const south = document.getElementById('utmHemisphereSelect').value === 'S';
+                    geojsonData = reprojectGeoJSONFromUTM(geojsonData, zone, south);
+                }
+
+                const name = file.name.toLowerCase();
+                if (name.includes('risco')) {
+                    state.allRisco.push(...geojsonData.features);
+                } else if (name.includes('lote')) {
+                    state.allLotes.push(...geojsonData.features);
+                } else if (name.includes('app')) {
+                    L.geoJSON(geojsonData, { style: styleApp, onEachFeature: onEachAppFeature }).addTo(state.layers.app);
+                } else if (name.includes('poligonal')) {
+                    L.geoJSON(geojsonData, { style: stylePoligonal, onEachFeature: onEachPoligonalFeature }).addTo(state.layers.poligonais);
+                }
+            }
+            
+            const lotesMap = new Map();
+            state.allLotes.forEach(lote => lotesMap.set(lote.properties.cod_lote, lote));
+            state.allRisco.forEach(riscoLote => {
+                const codLote = riscoLote.properties.cod_lote;
+                if (lotesMap.has(codLote)) {
+                    Object.assign(lotesMap.get(codLote).properties, riscoLote.properties);
+                } else {
+                    lotesMap.set(codLote, riscoLote);
+                }
+            });
+            state.allLotes = Array.from(lotesMap.values());
+
+            L.geoJSON(state.allLotes, { style: styleLote, onEachFeature: onEachLoteFeature }).addTo(state.layers.lotes);
+            state.allLotes.forEach(f => {
+                if (f.properties.desc_nucleo) state.nucleusSet.add(f.properties.desc_nucleo);
+            });
+
+            const allLayersGroup = L.featureGroup(Object.values(state.layers));
+            if (allLayersGroup.getLayers().length > 0) state.map.fitBounds(allLayersGroup.getBounds(), { padding: [20, 20] });
+
+            populateNucleusFilter();
+            refreshDashboard();
+            fillLotesTable();
+            setupRiskFilter();
+
+            statusEl.textContent = 'Dados carregados com sucesso!';
+            statusEl.className = 'status-message success';
+        } catch (e) {
+            statusEl.textContent = `Erro: ${e.message}`;
+            statusEl.className = 'status-message error';
+            console.error(e);
+        }
+    });
+}
+
+// ===================== Estilos e Popups das Camadas =====================
+function stylePoligonal() { return { fillColor: '#95a5a6', color: '#7f8c8d', weight: 1.5, opacity: 0.8, fillOpacity: 0.1, dashArray: '5, 5' }; }
+function styleApp() { return { fillColor: '#16a085', color: '#117a65', weight: 2, opacity: 1, fillOpacity: 0.6, dashArray: '4, 4' }; }
+
+function styleLote(feature) {
+    const grau = Number(feature.properties.grau);
+    let color;
+    if (grau === 1) color = '#2ecc71';
+    else if (grau === 2) color = '#f1c40f';
+    else if (grau === 3) color = '#e67e22';
+    else if (grau >= 4) color = '#e74c3c';
+    else return { fillColor: '#3498db', weight: 1, color: 'white', fillOpacity: 0.3 };
+    return { fillColor: color, weight: 2, color: 'white', fillOpacity: 0.7 };
+}
+
+function onEachPoligonalFeature(feature, layer) {
+    const p = feature.properties;
+    layer.bindPopup(`<h3>Poligonal</h3><b>Município:</b> ${p.municipio || 'N/A'}`);
+}
+function onEachAppFeature(feature, layer) {
+    layer.bindPopup(`<h3>APP</h3><b>ID:</b> ${feature.properties.id || 'N/A'}`);
+}
+function onEachLoteFeature(feature, layer) {
+    const p = feature.properties;
+    let content = `<h3>Detalhes do Lote</h3>`;
+    content += `<b>Código:</b> ${p.cod_lote || 'N/A'}<br>`;
+    content += `<b>Núcleo:</b> ${p.desc_nucleo || 'N/A'}<br>`;
+    if (p.grau) {
+        content += `<b>Grau de Risco:</b> ${p.grau}<br>`;
+        content += `<b>Tipo Risco:</b> ${p.risco}<br>`;
+        content += `<b>Intervenção:</b> ${p.intervencao}<br>`;
+        content += `<b>Custo:</b> ${formatBRL(p.valor)}<br>`;
+    }
+    layer.bindPopup(content);
+}
+
+// ===================== Filtros, Dashboard, Tabela =====================
+function setupRiskFilter() {
+    document.querySelectorAll('.risk-filter-checkbox').forEach(cb => cb.addEventListener('change', () => {
+        const selectedGrades = Array.from(document.querySelectorAll('.risk-filter-checkbox:checked')).map(c => Number(c.value));
+        state.layers.lotes.eachLayer(layer => {
+            const grau = Number(layer.feature.properties.grau);
+            if (!grau || selectedGrades.includes(grau)) {
+                layer.setStyle({ fillOpacity: grau ? 0.7 : 0.3 });
+            } else {
+                layer.setStyle({ fillOpacity: 0 });
+            }
+        });
+    }));
+}
+
+function filteredLotes() {
+    return state.currentNucleusFilter === 'all' ? state.allLotes : state.allLotes.filter(f => f.properties.desc_nucleo === state.currentNucleusFilter);
+}
+
+function refreshDashboard() {
+    const feats = filteredLotes();
+    let riskCounts = { 1: 0, 2: 0, 3: 0, 4: 0 };
+    let custoTotal = 0, lotesAppCount = 0;
+
+    feats.forEach(f => {
+        const p = f.properties;
+        const grau = Number(p.grau);
+        if (grau >= 1 && grau <= 4) riskCounts[grau]++;
+        if (Number(p.dentro_app) > 0) lotesAppCount++;
+        custoTotal += Number(p.valor) || 0;
+    });
+
+    const totalRisco = riskCounts[2] + riskCounts[3] + riskCounts[4];
+    document.getElementById('totalLotes').textContent = feats.length;
+    document.getElementById('lotesRisco').textContent = totalRisco;
+    document.getElementById('lotesApp').textContent = lotesAppCount;
+    document.getElementById('custoEstimado').textContent = formatBRL(custoTotal);
+    document.getElementById('riskLowCount').textContent = riskCounts[1];
+    document.getElementById('riskMediumCount').textContent = riskCounts[2];
+    document.getElementById('riskHighCount').textContent = riskCounts[3];
+    document.getElementById('riskVeryHighCount').textContent = riskCounts[4];
+}
+
+function fillLotesTable() {
+    const tbody = document.querySelector('#lotesDataTable tbody');
+    tbody.innerHTML = '';
+    const feats = filteredLotes();
+    if (feats.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7">Nenhum dado.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = feats.map(f => {
+        const p = f.properties;
+        return `<tr>
+            <td>${p.cod_lote || 'N/A'}</td>
+            <td>${p.desc_nucleo || 'N/A'}</td>
+            <td>${p.tipo_uso || 'N/A'}</td>
+            <td>${p.area_m2 ? p.area_m2.toLocaleString('pt-BR') : 'N/A'}</td>
+            <td>${p.grau || 'N/A'}</td>
+            <td>${Number(p.dentro_app) > 0 ? 'Sim' : 'Não'}</td>
+            <td><button class="zoomLoteBtn small-btn" data-codlote="${p.cod_lote}">Ver</button></td>
+        </tr>`;
+    }).join('');
+    
+    tbody.querySelectorAll('.zoomLoteBtn').forEach(btn => btn.addEventListener('click', e => {
+        const cod = e.target.getAttribute('data-codlote');
+        state.layers.lotes.eachLayer(layer => {
+            if (layer.feature.properties.cod_lote == cod) {
+                state.map.fitBounds(layer.getBounds());
+                layer.openPopup();
+            }
+        });
+    }));
+}
+
+function populateNucleusFilter() {
+    const filterSelect = document.getElementById('nucleusFilter');
+    const reportSelect = document.getElementById('nucleosAnalise'); // Assumindo que o select de relatório existe
+    filterSelect.innerHTML = '<option value="all">Todos os Núcleos</option>';
+    if (reportSelect) reportSelect.innerHTML = '<option value="all">Todos os Núcleos</option>';
+    Array.from(state.nucleusSet).sort().forEach(n => {
+        filterSelect.innerHTML += `<option value="${n}">${n}</option>`;
+        if (reportSelect) reportSelect.innerHTML += `<option value="${n}">${n}</option>`;
+    });
 }
 
 // ===================== Simulações de IBGE e IA (para ambiente client-side) =====================
