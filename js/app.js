@@ -333,11 +333,12 @@ document.addEventListener('DOMContentLoaded', () => {
         fillLotesTable();
     });
 
-    // Outros listeners (relatório, etc.) podem ser adicionados aqui
+    // Adicione outros listeners aqui se necessário (ex: para relatórios, info gerais)
 
     // Estado inicial
     document.getElementById('dashboard').classList.add('active');
     document.querySelector('nav a[data-section="dashboard"]').classList.add('active');
+});
 });
 // ===================== Simulações de IBGE e IA (para ambiente client-side) =====================
 // Estas funções substituem as chamadas ao backend Flask no ambiente de produção do GitHub Pages.
