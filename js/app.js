@@ -14,7 +14,43 @@ const state = {
     generalProjectInfo: {}, // Informações gerais do projeto (preenchimento manual)
     lastReportText: '',     // Último relatório gerado (para exportação)
 };
+// ===================== Inicialização do Mapa Leaflet =====================
+function initMap() {
+    console.log('initMap: Iniciando mapa Leaflet...'); 
+    state.map = L.map('mapid').setView([-15.7801, -47.9292], 5); // Centraliza no Brasil
 
+    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 20,
+        attribution: '&copy; OpenStreetMap contributors'
+    });
+    osmLayer.addTo(state.map); 
+
+    const esriWorldImagery = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 18, 
+        attribution: 'Tiles &copy; Esri'
+    });
+
+    const baseMaps = {
+        "OpenStreetMap": osmLayer,
+        "Esri World Imagery (Satélite)": esriWorldImagery 
+    };
+    L.control.layers(baseMaps).addTo(state.map); 
+
+    // **CORREÇÃO AQUI**: Adiciona um painel específico para cada camada para controlar a ordem (z-index)
+    state.map.createPane('poligonalPane');
+    state.map.getPane('poligonalPane').style.zIndex = 450; // Mais baixo
+    state.map.createPane('lotesPane');
+    state.map.getPane('lotesPane').style.zIndex = 500; // Meio
+    state.map.createPane('appPane');
+    state.map.getPane('appPane').style.zIndex = 550; // Mais alto
+
+    // Inicializa os FeatureGroups vazios
+    state.layers.poligonais = L.featureGroup([], { pane: 'poligonalPane' }).addTo(state.map);
+    state.layers.lotes = L.featureGroup([], { pane: 'lotesPane' }).addTo(state.map);
+    state.layers.app = L.featureGroup([], { pane: 'appPane' }).addTo(state.map); 
+
+    state.map.invalidateSize(); 
+}
 // ===================== Utilidades Diversas =====================
 
 /** Formata um número para moeda BRL. */
