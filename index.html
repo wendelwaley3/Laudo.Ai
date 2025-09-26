@@ -72,13 +72,13 @@
                 <div class="legend-item"><input type="checkbox" id="togglePoligonais"><label for="togglePoligonais">Poligonais</label> <span class="legend-color poligonais"></span></div>
                 <div class="legend-item"><input type="checkbox" id="toggleAPP"><label for="toggleAPP">APP</label> <span class="legend-color app"></span></div>
 
-                <h4>Áreas de Risco:</h4>
-                <ul>
-                    <li class="risk-low">Baixo Risco (1)</li>
-                    <li class="risk-medium">Médio Risco (2)</li>
-                    <li class="risk-high">Alto Risco (3)</li>
-                    <li class="risk-very-high">Muito Alto Risco (4)</li>
-                </ul>
+            <h4>Filtrar Risco por Grau:</h4>
+                <div class="legend-risk-filters">
+                    <label><input type="checkbox" class="risk-filter-checkbox" value="1" checked> Baixo (1)</label>
+                    <label><input type="checkbox" class="risk-filter-checkbox" value="2" checked> Médio (2)</label>
+                    <label><input type="checkbox" class="risk-filter-checkbox" value="3" checked> Alto (3)</label>
+                    <label><input type="checkbox" class="risk-filter-checkbox" value="4" checked> Muito Alto (4)</label>
+                </div>
                   <ul id="riskAnalysisSummary" class="risk-summary">
                 <li>Nenhum lote em risco identificado.</li>
             </ul>
@@ -102,13 +102,6 @@
 
             <!-- NOVA SEÇÃO: Análise de Tipos de Uso -->
             <h2>Análise de Tipos de Uso</h2>
-            <div id="useTypesAnalysis" class="use-types-grid">
-                <!-- O conteúdo será gerado dinamicamente pelo JavaScript -->
-                <p>Nenhum dado de tipo de uso disponível. Verifique se a propriedade 'tipo_uso' existe nos seus lotes.</p>
-            </div>
-         
-            <!-- ADICIONE ESTE BLOCO ABAIXO -->
-            <h2>Análise de Tipos de Uso</h2>
             <ul id="tiposUsoSummary" class="risk-summary">
                 <li>Nenhum dado de tipo de uso disponível. Verifique se a propriedade 'tipo_uso' existe nos seus lotes.</li>
             </ul>
@@ -116,14 +109,6 @@
 
             <h3>Resumo de Intervenções</h3>
             <ul>
-
-            <h2>Análise Comparativa por Núcleo</h2>
-            <div id="nucleusComparisonChart" class="chart-container">
-                <p>Nenhum dado disponível. Faça o upload das camadas para visualizar o gráfico.</p>
-                <!-- Opcional: Adicionar um canvas aqui para Chart.js se for implementar gráficos -->
-                <!-- <canvas id="myChart"></canvas> -->
-            </div>
-        </section>
 
         <!-- Upload Section -->
         <section id="upload" class="container">
