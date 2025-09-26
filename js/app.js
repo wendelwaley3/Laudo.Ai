@@ -173,25 +173,43 @@ function generateSimulatedAILaudo(promptData) {
     return laudo;
 }
 
-
 // ===================== Inicialização do Mapa Leaflet =====================
 function initMap() {
     console.log('initMap: Iniciando mapa Leaflet...'); 
     state.map = L.map('mapid').setView([-15.7801, -47.9292], 5); // Centraliza no Brasil
-    console.log('initMap: Objeto mapa criado.'); 
 
-    // Camadas base (tiles)
     const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 20,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        attribution: '&copy; OpenStreetMap contributors'
     });
     osmLayer.addTo(state.map); 
 
     const esriWorldImagery = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        maxZoom: 18, // Max zoom para Esri é 18
-        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+        maxZoom: 18, 
+        attribution: 'Tiles &copy; Esri'
     });
 
+    const baseMaps = {
+        "OpenStreetMap": osmLayer,
+        "Esri World Imagery (Satélite)": esriWorldImagery 
+    };
+    L.control.layers(baseMaps).addTo(state.map); 
+
+    // **CORREÇÃO AQUI**: Adiciona um painel específico para cada camada para controlar a ordem (z-index)
+    state.map.createPane('poligonalPane');
+    state.map.getPane('poligonalPane').style.zIndex = 450; // Mais baixo
+    state.map.createPane('lotesPane');
+    state.map.getPane('lotesPane').style.zIndex = 500; // Meio
+    state.map.createPane('appPane');
+    state.map.getPane('appPane').style.zIndex = 550; // Mais alto
+
+    // Inicializa os FeatureGroups vazios
+    state.layers.poligonais = L.featureGroup([], { pane: 'poligonalPane' }).addTo(state.map);
+    state.layers.lotes = L.featureGroup([], { pane: 'lotesPane' }).addTo(state.map);
+    state.layers.app = L.featureGroup([], { pane: 'appPane' }).addTo(state.map); 
+
+    state.map.invalidateSize(); 
+}
     // Controle de camadas base para o usuário escolher o basemap
     const baseMaps = {
         "OpenStreetMap": osmLayer,
@@ -247,14 +265,17 @@ function initNav() {
     });
 }
 
-/// ===================== Gerenciamento de Upload e Processamento de GeoJSON =====================
+// ===================== Gerenciamento de Upload e Processamento de GeoJSON =====================
 function initUpload() {
     console.log('initUpload: Configurando upload de arquivos...'); 
     const fileInput = document.getElementById('geojsonFileInput');
-    const dragDropArea = document.querySelector('.drag-drop-area'); // A div que é a área de drop
+    const dragDropArea = document.querySelector('.drag-drop-area');
     const fileListElement = document.getElementById('fileList');
     const processAndLoadBtn = document.getElementById('processAndLoadBtn');
     const uploadStatus = document.getElementById('uploadStatus');
+
+    // **CORREÇÃO AQUI**: Seleciona o botão visível PELO SEU ID
+    const selectFilesVisibleButton = document.getElementById('selectFilesVisibleButton');
 
     // Elementos da UI de Reprojeção UTM
     const useUtmCheckbox = document.getElementById('useUtmCheckbox');
@@ -278,8 +299,15 @@ function initUpload() {
         console.log(`UTM Hemisphere set to: ${state.utmOptions.south ? 'South' : 'North'}`);
     });
 
-    // **CORREÇÃO AQUI**: Não precisamos mais do listener de clique no botão visível,
-    // pois a tag <label> no HTML já faz a conexão.
+    // **CORREÇÃO AQUI**: Adiciona um listener de clique ao botão visível para disparar o clique no input de arquivo oculto
+    if (selectFilesVisibleButton && fileInput) {
+        selectFilesVisibleButton.addEventListener('click', () => {
+            console.log('Evento: Botão "Selecionar Arquivos" (visível) clicado. Disparando clique no input oculto...'); 
+            fileInput.click(); // Isso abre o diálogo de seleção de arquivos do navegador
+        });
+    } else {
+        console.error('initUpload: Elementos de upload (botão visível ou input oculto) não encontrados ou inválidos. O upload não funcionará.');
+    }
 
     // Listener para quando arquivos são selecionados no input de arquivo
     fileInput.addEventListener('change', (e) => {
@@ -411,37 +439,8 @@ function initUpload() {
                 state.nucleusSet.add(f.properties.desc_nucleo);
             }
         });
-                 // **LÓGICA DE CATEGORIZAÇÃO REFINADA**
-                const fileNameLower = file.name.toLowerCase();
-                if (fileNameLower.includes('risco')) {
-                    // Lotes de risco são adicionados à lista principal de lotes
-                    allLotesGeoJSON.features.push(...geojsonData.features);
-                } else if (fileNameLower.includes('lote')) {
-                    allLotesGeoJSON.features.push(...geojsonData.features);
-                } else if (fileNameLower.includes('app')) {
-                    allAPPGeoJSON.features.push(...geojsonData.features);
-                } else if (fileNameLower.includes('poligonal')) {
-                    allPoligonaisGeoJSON.features.push(...geojsonData.features);
-                } else {
-                    // Arquivos não reconhecidos (como tabela_geral) podem ser adicionados às poligonais ou ignorados
-                    allPoligonaisGeoJSON.features.push(...geojsonData.features);
-                }
-            }
-
-            // Processa todos os lotes coletados para filtros e dashboard
-            state.allLotes = allLotesGeoJSON.features;
-            state.allLotes.forEach(f => {
-                if (f.properties && f.properties.desc_nucleo) {
-                    state.nucleusSet.add(f.properties.desc_nucleo);
-            
-        } catch (error) {
-            console.error('Erro CRÍTICO durante o processamento:', error);
-            uploadStatus.textContent = `Erro: ${error.message}.`;
-            uploadStatus.className = 'status-message error';
-        }
-    });
-}
-            // Adiciona as feições aos FeatureGroups do Leaflet para exibição no mapa
+        
+        // Adiciona as feições aos FeatureGroups do Leaflet para exibição no mapa
         L.geoJSON(newAPPFeatures, { onEachFeature: onEachAppFeature, style: styleApp }).addTo(state.layers.app);
         L.geoJSON(newPoligonaisFeatures, { onEachFeature: onEachPoligonalFeature, style: stylePoligonal }).addTo(state.layers.poligonais);
         L.geoJSON(state.allLotes, { onEachFeature: onEachLoteFeature, style: styleLote }).addTo(state.layers.lotes);
@@ -464,14 +463,72 @@ function initUpload() {
         populateNucleusFilter();
         refreshDashboard();
         fillLotesTable(); 
-        setupRiskFilter(); 
 
         uploadStatus.textContent = 'Dados carregados e processados com sucesso! Vá para o Dashboard ou Dados Lotes.';
         uploadStatus.className = 'status-message success';
         console.log('Todos os arquivos processados e dados carregados no mapa e dashboard.'); 
     });
 }
+// ===================== Gerenciamento de Upload e Processamento de GeoJSON =====================
+function initUpload() {
+    // ... (toda a parte inicial de initUpload permanece a mesma) ...
 
+    processAndLoadBtn.addEventListener('click', async () => {
+        // ... (código de limpeza e leitura de arquivos permanece o mesmo) ...
+
+        let allProcessedFeatures = { lotes: [], app: [], risco: [], poligonais: [] };
+
+        for (const file of filesToProcess) {
+            // ... (código de leitura do arquivo e reprojeção UTM) ...
+
+                const fileNameLower = file.name.toLowerCase();
+                // **LÓGICA DE CATEGORIZAÇÃO CORRIGIDA**
+                if (fileNameLower.includes('risco')) {
+                    allProcessedFeatures.risco.push(...geojsonData.features); // Separa em uma categoria própria
+                } else if (fileNameLower.includes('lote')) {
+                    allProcessedFeatures.lotes.push(...geojsonData.features);
+                } else if (fileNameLower.includes('app')) {
+                    allProcessedFeatures.app.push(...geojsonData.features);
+                } else if (fileNameLower.includes('poligonal')) {
+                    allProcessedFeatures.poligonais.push(...geojsonData.features);
+                } else {
+                    allProcessedFeatures.poligonais.push(...geojsonData.features);
+                }
+        }
+
+        // **COMBINAÇÃO INTELIGENTE DE DADOS**
+        // Os lotes de risco também são adicionados à lista principal de lotes para análise
+        state.allLotes = [...allProcessedFeatures.lotes, ...allProcessedFeatures.risco];
+        
+        state.allLotes.forEach(f => {
+            if (f.properties && f.properties.desc_nucleo) {
+                state.nucleusSet.add(f.properties.desc_nucleo);
+            }
+        });
+
+        // **CORREÇÃO AQUI**: Renderiza cada camada separadamente
+        L.geoJSON(allProcessedFeatures.lotes, { onEachFeature: onEachLoteFeature, style: styleLote }).addTo(state.layers.lotes);
+        L.geoJSON(allProcessedFeatures.app, { onEachFeature: onEachAppFeature, style: styleApp }).addTo(state.layers.app);
+        L.geoJSON(allProcessedFeatures.poligonais, { onEachFeature: onEachPoligonalFeature, style: stylePoligonal }).addTo(state.layers.poligonais);
+        // Adiciona a camada de risco ao seu próprio FeatureGroup
+        L.geoJSON(allProcessedFeatures.risco, { onEachFeature: onEachRiscoFeature, style: styleRisco }).addTo(state.layers.risco);
+
+        // Ajusta o zoom do mapa para todas as camadas
+        const allLayersGroup = L.featureGroup([state.layers.lotes, state.layers.app, state.layers.poligonais, state.layers.risco]);
+        if (allLayersGroup.getLayers().length > 0) {
+            state.map.fitBounds(allLayersGroup.getBounds(), { padding: [20, 20] });
+        }
+
+        // Atualiza a interface
+        populateNucleusFilter();
+        refreshDashboard();
+        fillLotesTable();
+        setupRiskFilter();
+
+        uploadStatus.textContent = 'Dados carregados e processados com sucesso!';
+        uploadStatus.className = 'status-message success';
+    });
+}
 // ===================== Estilos e Popups das Camadas Geoespaciais =====================
 
 // Estilo para a camada principal de LOTES
@@ -480,6 +537,17 @@ function styleLote(feature) {
     // Verifica se o lote tem uma classificação de risco. Se tiver, será colorido por ela.
     const grau = Number(p.grau);
     let color, fillOpacity = 0.5;
+    
+// Estilo para a camada de ÁREA DE RISCO (colorida por grau)
+function styleRisco(feature) {
+    const grau = Number(feature.properties.grau);
+    let color;
+
+    if (grau === 1) color = '#2ecc71'; // Verde
+    else if (grau === 2) color = '#f1c40f'; // Amarelo
+    else if (grau === 3) color = '#e67e22'; // Laranja
+    else if (grau >= 4) color = '#e74c3c'; // Vermelho
+    else color = '#95a5a6'; // Cinza para risco não definido
 
     if (grau === 1) {
         color = '#2ecc71'; // Verde para Grau 1
@@ -495,12 +563,12 @@ function styleLote(feature) {
         fillOpacity = 0.3; // Um pouco mais transparente
     }
 
-    return {
+   return {
         fillColor: color,
-        weight: 1,
+        weight: 2,
         opacity: 1,
-        color: 'white', // Borda branca para destaque
-        fillOpacity: fillOpacity
+        color: 'white',
+        fillOpacity: 0.7 // Mais opaco para se destacar
     };
 }
 / Popup para a camada de ÁREA DE RISCO
@@ -642,7 +710,72 @@ async function buscarInfoCidade(nomeCidade) {
     alert(info);
     console.log("Dados do município simulados:", dadosSimulados);
 }
+// ===================== Renderização de Camadas no Mapa =====================
+function renderLayersOnMap() {
+    console.log('renderLayersOnMap: Renderizando camadas...'); 
+    
+    // Limpa as camadas antigas para evitar duplicação
+    state.layers.lotes.clearLayers();
+    state.layers.app.clearLayers();
+    state.layers.poligonais.clearLayers();
 
+    // Adiciona as camadas na ordem correta, usando os dados globais
+    if (allPoligonaisGeoJSON.features.length > 0) {
+        L.geoJSON(allPoligonaisGeoJSON, {
+            onEachFeature: onEachPoligonalFeature,
+            style: stylePoligonal,
+            pane: 'poligonalPane' // Garante que renderize no painel correto
+        }).addTo(state.layers.poligonais);
+    }
+    
+    if (allLotesGeoJSON.features.length > 0) {
+        L.geoJSON(allLotesGeoJSON, {
+            onEachFeature: onEachLoteFeature,
+            style: styleLote,
+            pane: 'lotesPane' // Garante que renderize no painel correto
+        }).addTo(state.layers.lotes);
+    }
+
+    if (allAPPGeoJSON.features.length > 0) {
+        L.geoJSON(allAPPGeoJSON, {
+            onEachFeature: onEachAppFeature,
+            style: styleApp,
+            pane: 'appPane' // Garante que renderize no painel correto
+        }).addTo(state.layers.app);
+    }
+
+    // Ajusta o zoom para todas as camadas
+    const allLayersGroup = L.featureGroup([state.layers.lotes, state.layers.app, state.layers.poligonais]);
+    if (allLayersGroup.getLayers().length > 0) {
+        try { 
+            state.map.fitBounds(allLayersGroup.getBounds(), { padding: [20, 20] }); 
+        } catch (e) {
+            console.warn("Não foi possível ajustar o mapa aos bounds.", e);
+        }
+    }
+}
+// ===================== Inicialização do Mapa Leaflet =====================
+function initMap() {
+    // ... (código existente de initMap) ...
+
+    // **CORREÇÃO AQUI**: Adiciona um painel específico para a camada de risco
+    state.map.createPane('poligonalPane');
+    state.map.getPane('poligonalPane').style.zIndex = 450; // Mais baixo
+    state.map.createPane('lotesPane');
+    state.map.getPane('lotesPane').style.zIndex = 500; // Meio
+    state.map.createPane('appPane');
+    state.map.getPane('appPane').style.zIndex = 550; // Acima dos lotes
+    state.map.createPane('riscoPane'); // <-- ADICIONE ESTA LINHA
+    state.map.getPane('riscoPane').style.zIndex = 600; // <-- ADICIONE ESTA LINHA (Mais alto de todos)
+
+    // Inicializa os FeatureGroups vazios
+    state.layers.poligonais = L.featureGroup([], { pane: 'poligonalPane' }).addTo(state.map);
+    state.layers.lotes = L.featureGroup([], { pane: 'lotesPane' }).addTo(state.map);
+    state.layers.app = L.featureGroup([], { pane: 'appPane' }).addTo(state.map);
+    state.layers.risco = L.featureGroup([], { pane: 'riscoPane' }).addTo(state.map); // <-- ADICIONE ESTA LINHA
+
+    state.map.invalidateSize(); 
+}
 
 // ===================== Filtros por Núcleo =====================
 function populateNucleusFilter() {
