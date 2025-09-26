@@ -412,6 +412,25 @@ function initUpload() {
             }
         });
         
+         // Adiciona as feições aos FeatureGroups do Leaflet para exibição no mapa
+        L.geoJSON(newAPPFeatures, { onEachFeature: onEachAppFeature, style: styleApp }).addTo(state.layers.app);
+        L.geoJSON(newPoligonaisFeatures, { onEachFeature: onEachPoligonalFeature, style: stylePoligonal }).addTo(state.layers.poligonais);
+        L.geoJSON(state.allLotes, { onEachFeature: onEachLoteFeature, style: styleLote }).addTo(state.layers.lotes);
+
+        // Ajusta o mapa para a extensão de todos os dados carregados
+        const allLayersGroup = L.featureGroup([state.layers.lotes, state.layers.app, state.layers.poligonais]);
+        if (allLayersGroup.getLayers().length > 0) {
+            try { 
+                state.map.fitBounds(allLayersGroup.getBounds(), { padding: [20, 20] }); 
+                console.log('Mapa ajustado para os bounds dos dados carregados.');
+            } catch (e) {
+                console.warn("Não foi possível ajustar o mapa aos bounds. Verifique as coordenadas dos seus GeoJSONs.", e);
+            }
+        } else {
+            state.map.setView([-15.7801, -47.9292], 5); // Centraliza no Brasil se não houver dados
+            console.log('Nenhum dado carregado, mapa centralizado no Brasil.');
+        }
+
         // Adiciona as feições aos FeatureGroups do Leaflet para exibição no mapa
         L.geoJSON(newAPPFeatures, { onEachFeature: onEachAppFeature, style: styleApp }).addTo(state.layers.app);
         L.geoJSON(newPoligonaisFeatures, { onEachFeature: onEachPoligonalFeature, style: stylePoligonal }).addTo(state.layers.poligonais);
@@ -437,10 +456,6 @@ function initUpload() {
         fillLotesTable(); 
         setupRiskFilter(); 
 
-        uploadStatus.textContent = 'Dados carregados e processados com sucesso!';
-        uploadStatus.className = 'status-message success';
-    });
-}
         uploadStatus.textContent = 'Dados carregados e processados com sucesso! Vá para o Dashboard ou Dados Lotes.';
         uploadStatus.className = 'status-message success';
         console.log('Todos os arquivos processados e dados carregados no mapa e dashboard.'); 
