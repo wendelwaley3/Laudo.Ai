@@ -435,42 +435,204 @@ function initUpload() {
         populateNucleusFilter();
         refreshDashboard();
         fillLotesTable(); 
+        setupRiskFilter(); 
 
+        uploadStatus.textContent = 'Dados carregados e processados com sucesso!';
+        uploadStatus.className = 'status-message success';
+    });
+}
         uploadStatus.textContent = 'Dados carregados e processados com sucesso! Vá para o Dashboard ou Dados Lotes.';
         uploadStatus.className = 'status-message success';
         console.log('Todos os arquivos processados e dados carregados no mapa e dashboard.'); 
     });
 }
+// ===================== Gerenciamento de Upload e Processamento de GeoJSON =====================
+function initUpload() {
+    console.log('initUpload: Configurando upload de arquivos...'); 
+    const fileInput = document.getElementById('geojsonFileInput');
+    const dragDropArea = document.querySelector('.drag-drop-area');
+    const fileListElement = document.getElementById('fileList');
+    const processAndLoadBtn = document.getElementById('processAndLoadBtn');
+    const uploadStatus = document.getElementById('uploadStatus');
+
+    const selectFilesVisibleButton = document.getElementById('selectFilesVisibleButton');
+    const useUtmCheckbox = document.getElementById('useUtmCheckbox');
+    const utmOptionsContainer = document.getElementById('utmOptionsContainer');
+    const utmZoneInput = document.getElementById('utmZoneInput');
+    const utmHemisphereSelect = document.getElementById('utmHemisphereSelect');
+
+    useUtmCheckbox.addEventListener('change', () => {
+        state.utmOptions.useUtm = useUtmCheckbox.checked;
+        utmOptionsContainer.style.display = useUtmCheckbox.checked ? 'flex' : 'none';
+    });
+    utmZoneInput.addEventListener('input', () => { 
+        state.utmOptions.zone = Number(utmZoneInput.value) || 23; 
+    });
+    utmHemisphereSelect.addEventListener('change', () => { 
+        state.utmOptions.south = (utmHemisphereSelect.value === 'S'); 
+    });
+
+    if (selectFilesVisibleButton && fileInput) {
+        selectFilesVisibleButton.addEventListener('click', () => {
+            fileInput.click();
+        });
+    }
+
+    fileInput.addEventListener('change', (e) => {
+        const selectedFilesArray = Array.from(e.target.files);
+        fileListElement.innerHTML = '';
+        if (selectedFilesArray.length > 0) {
+            selectedFilesArray.forEach(file => {
+                const li = document.createElement('li');
+                li.textContent = file.name;
+                fileListElement.appendChild(li);
+            });
+        } else {
+            fileListElement.innerHTML = '<li>Nenhum arquivo selecionado.</li>';
+        }
+    });
+
+    dragDropArea.addEventListener('dragover', (e) => { e.preventDefault(); dragDropArea.classList.add('dragging'); });
+    dragDropArea.addEventListener('dragleave', () => { dragDropArea.classList.remove('dragging'); });
+    dragDropArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dragDropArea.classList.remove('dragging');
+        const droppedFiles = Array.from(e.dataTransfer.files).filter(file => file.name.endsWith('.geojson') || file.name.endsWith('.json'));
+        const dataTransfer = new DataTransfer();
+        droppedFiles.forEach(file => dataTransfer.items.add(file));
+        fileInput.files = dataTransfer.files;
+        fileInput.dispatchEvent(new Event('change'));
+    });
+
+    processAndLoadBtn.addEventListener('click', async () => {
+        const filesToProcess = Array.from(fileInput.files || []);
+        if (filesToProcess.length === 0) {
+            uploadStatus.textContent = 'Nenhum arquivo para processar.';
+            uploadStatus.className = 'status-message error';
+            return;
+        }
+
+        uploadStatus.textContent = 'Processando e carregando dados...';
+        uploadStatus.className = 'status-message info';
+
+        // Limpa estado e camadas
+        state.allLotes = [];
+        state.nucleusSet.clear();
+        allAPPGeoJSON.features = [];
+        allPoligonaisGeoJSON.features = [];
+
+        try {
+            for (const file of filesToProcess) {
+                const reader = new FileReader();
+                const fileContent = await new Promise((resolve, reject) => {
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.onerror = (e) => reject(new Error(`Falha ao ler o arquivo ${file.name}`));
+                    reader.readAsText(file);
+                });
+                let geojsonData = JSON.parse(fileContent);
+
+                if (state.utmOptions.useUtm) {
+                    geojsonData = reprojectGeoJSONFromUTM(geojsonData, state.utmOptions.zone, state.utmOptions.south);
+                }
+
+                // **LÓGICA DE CATEGORIZAÇÃO REFINADA**
+                const fileNameLower = file.name.toLowerCase();
+                if (fileNameLower.includes('risco')) {
+                    // Lotes de risco são adicionados à lista principal de lotes
+                    allLotesGeoJSON.features.push(...geojsonData.features);
+                } else if (fileNameLower.includes('lote')) {
+                    allLotesGeoJSON.features.push(...geojsonData.features);
+                } else if (fileNameLower.includes('app')) {
+                    allAPPGeoJSON.features.push(...geojsonData.features);
+                } else if (fileNameLower.includes('poligonal')) {
+                    allPoligonaisGeoJSON.features.push(...geojsonData.features);
+                } else {
+                    // Arquivos não reconhecidos (como tabela_geral) podem ser adicionados às poligonais ou ignorados
+                    allPoligonaisGeoJSON.features.push(...geojsonData.features);
+                }
+            }
+
+            // Processa todos os lotes coletados para filtros e dashboard
+            state.allLotes = allLotesGeoJSON.features;
+            state.allLotes.forEach(f => {
+                if (f.properties && f.properties.desc_nucleo) {
+                    state.nucleusSet.add(f.properties.desc_nucleo);
+                }
+            });
+
+            renderLayersOnMap(); // Renderiza as camadas agora separadas
+            populateNucleusFilter();
+            refreshDashboard();
+            fillLotesTable();
+
+            uploadStatus.textContent = 'Dados carregados com sucesso!';
+            uploadStatus.className = 'status-message success';
+
+        } catch (error) {
+            console.error('Erro CRÍTICO durante o processamento:', error);
+            uploadStatus.textContent = `Erro: ${error.message}.`;
+            uploadStatus.className = 'status-message error';
+        }
+    });
+}
 // ===================== Estilos e Popups das Camadas Geoespaciais =====================
 
-// Estilo dos lotes baseado no risco
+// Estilo para a camada principal de LOTES
 function styleLote(feature) {
-    const risco = String(feature.properties.risco || feature.properties.status_risco || 'N/A').toLowerCase(); 
-    let color;
-    if (risco.includes('baixo') || risco === '1') color = '#2ecc71';      
-    else if (risco.includes('médio') || risco.includes('medio') || risco === '2') color = '#f39c12'; 
-    else if (risco.includes('alto') && !risco.includes('muito') || risco === '3') color = '#e74c3c'; 
-    else if (risco.includes('muito alto') || risco === '4') color = '#c0392b'; 
-    else color = '#3498db'; 
+    const p = feature.properties || {};
+    // Verifica se o lote tem uma classificação de risco. Se tiver, será colorido por ela.
+    const grau = Number(p.grau);
+    let color, fillOpacity = 0.5;
+
+    if (grau === 1) {
+        color = '#2ecc71'; // Verde para Grau 1
+    } else if (grau === 2) {
+        color = '#f1c40f'; // Amarelo para Grau 2
+    } else if (grau === 3) {
+        color = '#e67e22'; // Laranja para Grau 3
+    } else if (grau >= 4) {
+        color = '#e74c3c'; // Vermelho para Grau 4
+    } else {
+        // Lotes sem risco definido ficam em azul
+        color = '#3498db'; 
+        fillOpacity = 0.3; // Um pouco mais transparente
+    }
 
     return {
         fillColor: color,
         weight: 1,
         opacity: 1,
-        color: 'white', 
-        dashArray: '3', 
-        fillOpacity: 0.7
+        color: 'white', // Borda branca para destaque
+        fillOpacity: fillOpacity
     };
 }
-
-// Popup ao clicar no lote
+/ Popup para a camada de ÁREA DE RISCO
+function onEachRiscoFeature(feature, layer) {
+    if (feature.properties) {
+        const p = feature.properties;
+        let popupContent = "<h3>Detalhes da Área de Risco</h3>";
+        popupContent += `<strong>Núcleo:</strong> ${p.desc_nucleo || 'N/A'}<br>`;
+        popupContent += `<strong>Grau de Risco:</strong> ${p.grau || 'N/A'}<br>`;
+        popupContent += `<strong>Tipo:</strong> ${p.risco || 'N/A'}<br>`;
+        popupContent += `<strong>Intervenção:</strong> ${p.intervencao || 'N/A'}<br>`;
+        popupContent += `<strong>Custo de Intervenção:</strong> ${formatBRL(p.valor)}<br>`;
+        popupContent += `<strong>Lotes Atingidos:</strong> ${p.lotes_atingidos || 'N/A'}<br>`;
+        layer.bindPopup(popupContent);
+    }
+}
+// Popup para a camada principal de LOTES
 function onEachLoteFeature(feature, layer) {
     if (feature.properties) {
-        let popupContent = "<h3>Detalhes do Lote:</h3>";
-        for (let key in feature.properties) {
-            let value = feature.properties[key];
-            if (value === null || value === undefined || value === '') value = 'N/A'; 
-
+        const p = feature.properties;
+        let popupContent = "<h3>Detalhes do Lote</h3>";
+        popupContent += `<strong>Código:</strong> ${p.cod_lote || 'N/A'}<br>`;
+        popupContent += `<strong>Núcleo:</strong> ${p.desc_nucleo || 'N/A'}<br>`;
+        popupContent += `<strong>Tipo de Uso:</strong> ${p.tipo_uso || 'N/A'}<br>`;
+        popupContent += `<strong>Área (m²):</strong> ${(p.area_m2 || 0).toLocaleString('pt-BR')}<br>`;
+        popupContent += `<strong>Município:</strong> ${p.nm_mun || 'N/A'}<br>`;
+        layer.bindPopup(popupContent);
+    }
+}
             // Formatação de valores específicos conforme as suas tabelas
             if (key.toLowerCase() === 'area_m2' && typeof value === 'number') { 
                 value = value.toLocaleString('pt-BR') + ' m²';
@@ -488,14 +650,11 @@ function onEachLoteFeature(feature, layer) {
                 case 'desc_nucleo': displayKey = 'Núcleo'; break;
                 case 'tipo_uso': displayKey = 'Tipo de Uso'; break;
                 case 'area_m2': displayKey = 'Área (m²)'; break;
-                case 'risco': displayKey = 'Status de Risco'; break;
-                case 'dentro_app': displayKey = 'Em APP'; break;
                 case 'valor': displayKey = 'Custo de Intervenção'; break;
                 case 'tipo_edificacao': displayKey = 'Tipo de Edificação'; break;
                 case 'nm_mun': displayKey = 'Município'; break; 
                 case 'nome_logradouro': displayKey = 'Logradouro'; break;
                 case 'numero_postal': displayKey = 'CEP'; break;
-                case 'status_risco': displayKey = 'Status Risco'; break; 
             }
 
             popupContent += `<strong>${displayKey}:</strong> ${value}<br>`;
@@ -504,16 +663,17 @@ function onEachLoteFeature(feature, layer) {
     }
 }
 
-// Estilo da camada APP
+// Estilo para a camada de APP
 function styleApp(feature) {
     return {
-        color: '#e74c3c', // Vermelho para APP
+        fillColor: '#16a085', // Verde escuro
+        color: '#117a65',     // Borda um pouco mais escura
         weight: 2,
-        opacity: 0.7,
-        fillOpacity: 0.2
+        opacity: 1,
+        fillOpacity: 0.6,    // Opacidade para o "sombreamento"
+        dashArray: '4, 4'
     };
 }
-
 // Popup da camada APP
 function onEachAppFeature(feature, layer) {
     if (feature.properties) {
@@ -525,13 +685,15 @@ function onEachAppFeature(feature, layer) {
     }
 }
 
-// Estilo da camada Poligonal (para tabela_geral e outros)
+// Estilo para a camada POLIGONAL
 function stylePoligonal(feature) {
     return {
-        color: '#2ecc73', // Verde para poligonais
-        weight: 2,
-        opacity: 0.7,
-        fillOpacity: 0.2
+        fillColor: '#95a5a6', // Cinza
+        color: '#7f8c8d',     // Borda cinza um pouco mais escura
+        weight: 1.5,
+        opacity: 0.8,
+        fillOpacity: 0.1,    // Quase transparente
+        dashArray: '5, 5'
     };
 }
 
@@ -552,6 +714,19 @@ async function onEachPoligonalFeature(feature, layer) {
         
         popupContent += `<button onclick="buscarInfoCidade('${municipioNome}')" style="margin-top:8px;">Ver informações do município</button>`;
         
+        layer.bindPopup(popupContent);
+    }
+}
+// Popup para a camada principal de LOTES
+function onEachLoteFeature(feature, layer) {
+    if (feature.properties) {
+        const p = feature.properties;
+        let popupContent = "<h3>Detalhes do Lote</h3>";
+        popupContent += `<strong>Código:</strong> ${p.cod_lote || 'N/A'}<br>`;
+        popupContent += `<strong>Núcleo:</strong> ${p.desc_nucleo || 'N/A'}<br>`;
+        popupContent += `<strong>Tipo de Uso:</strong> ${p.tipo_uso || 'N/A'}<br>`;
+        popupContent += `<strong>Área (m²):</strong> ${(p.area_m2 || 0).toLocaleString('pt-BR')}<br>`;
+        popupContent += `<strong>Município:</strong> ${p.nm_mun || 'N/A'}<br>`;
         layer.bindPopup(popupContent);
     }
 }
@@ -627,6 +802,32 @@ function zoomToFilter() {
     }
 }
 
+// ===================== Filtro de Risco no Mapa =====================
+function setupRiskFilter() {
+    const checkboxes = document.querySelectorAll('.risk-filter-checkbox');
+
+    function updateRiskFilter() {
+        const selectedGrades = [];
+        checkboxes.forEach(cb => {
+            if (cb.checked) {
+                selectedGrades.push(Number(cb.value));
+            }
+        });
+
+        if (!state.layers.risco) return;
+
+        state.layers.risco.eachLayer(layer => {
+            const grau = Number(layer.feature.properties.grau);
+            if (selectedGrades.includes(grau)) {
+                state.map.addLayer(layer);
+            } else {
+                state.map.removeLayer(layer);
+            }
+        });
+    }
+
+    checkboxes.forEach(cb => cb.addEventListener('change', updateRiskFilter));
+}
 // ===================== Dashboard =====================
 function refreshDashboard() {
     console.log('refreshDashboard: Atualizando cards do dashboard.');
