@@ -1,7 +1,7 @@
 import { formatBRL } from '../utils.js';
 
-export function stylePoligonal() { return { fillColor: '#95a5a6', color: '#7f8c8d', weight: 1.5, opacity: 0.8, fillOpacity: 0.1, dashArray: '5, 5' }; }
-export function styleApp() { return { fillColor: '#16a085', color: '#117a65', weight: 2, opacity: 1, fillOpacity: 0.6, dashArray: '4, 4' }; }
+export function stylePoligonal() { return { fillColor: '#95a5a6', color: '#7f8c8d', weight: 1.5, opacity: 0.8, fillOpacity: 0.1 }; }
+export function styleApp() { return { fillColor: '#16a085', color: '#117a65', weight: 2, fillOpacity: 0.6 }; }
 
 export function styleLote(feature) {
     const grau = Number(feature.properties.grau);
@@ -13,10 +13,15 @@ export function styleLote(feature) {
     else return { fillColor: '#3498db', weight: 1, color: 'white', fillOpacity: 0.3 };
     return { fillColor: color, weight: 2, color: 'white', fillOpacity: 0.7 };
 }
-
-export function onEachPoligonalFeature(feature, layer) {
+export function onEachLoteFeature(feature, layer) {
     const p = feature.properties;
-    layer.bindPopup(`<h3>Poligonal</h3><b>Município:</b> ${p.municipio || 'N/A'}`);
+    let content = `<h3>Detalhes</h3><b>Cód:</b> ${p.cod_lote || 'N/A'}<br><b>Núcleo:</b> ${p.desc_nucleo || 'N/A'}`;
+    if (p.grau) {
+        content += `<br><b>Risco:</b> ${p.grau}<br><b>Custo:</b> ${formatBRL(p.valor)}`;
+    }
+    layer.bindPopup(content);
+}import { formatBRL } from '../utils.js';
+
 }
 export function onEachAppFeature(feature, layer) {
     layer.bindPopup(`<h3>APP</h3><b>ID:</b> ${feature.properties.id || 'N/A'}`);
