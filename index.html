@@ -21,32 +21,59 @@
     </header>
     <main>
         <section id="dashboard" class="container active">
+            <h2>Filtros de Análise</h2>
+            <div class="filters">
+                <select id="nucleusFilter">
+                    <option value="all">Todos os Núcleos</option>
+                </select>
+                <button id="applyFiltersBtn">Aplicar Filtros</button>
+            </div>
+            <div class="dashboard-cards">
+                <div class="card"><h3>Total de Lotes</h3><p id="totalLotes">0</p></div>
+                <div class="card error"><h3>Lotes em Risco</h3><p id="lotesRisco">0</p></div>
+                <div class="card warning"><h3>Lotes em APP</h3><p id="lotesApp">0</p></div>
+                <div class="card info"><h3>Custo de Intervenção</h3><p id="custoEstimado">R$ 0,00</p></div>
+            </div>
+            <h2>Visualização Geoespacial</h2>
             <div id="mapid"></div>
+            <div class="map-legend">
+                <h3>Legenda do Mapa</h3>
+                <div class="legend-item"><input type="checkbox" id="toggleLotes" checked><label for="toggleLotes">Lotes</label></div>
+                <div class="legend-item"><input type="checkbox" id="togglePoligonais" checked><label for="togglePoligonais">Poligonais</label></div>
+                <div class="legend-item"><input type="checkbox" id="toggleAPP" checked><label for="toggleAPP">APP</label></div>
+            </div>
+            <h2>Análise de Riscos</h2>
+            <ul id="riskAnalysisSummary" class="risk-summary">
+                <li>Nenhum lote em risco identificado.</li>
+            </ul>
         </section>
         <section id="upload" class="container">
             <h2>Upload de Camadas</h2>
-            <input type="file" id="geojsonFileInput" multiple>
+            <div class="upload-area">
+                <label for="geojsonFileInput" class="drag-drop-area">
+                    <p>Arraste e solte ou clique para selecionar</p>
+                    <button type="button" id="selectFilesVisibleButton">Escolher Arquivos</button>
+                </label>
+                <input type="file" id="geojsonFileInput" multiple style="display: none;">
+            </div>
+            <ul id="fileList"></ul>
             <button id="processAndLoadBtn">Processar</button>
+            <p id="uploadStatus"></p>
         </section>
         <section id="dados-lotes" class="container">
             <h2>Dados Detalhados</h2>
             <table id="lotesDataTable">
                 <thead>
-                    <tr><th>Código</th><th>Núcleo</th></tr>
+                    <tr><th>Código</th><th>Núcleo</th><th>Ações</th></tr>
                 </thead>
                 <tbody></tbody>
             </table>
-        </section>
-        <section id="relatorios" class="container">
-            <h2>Gerador de Relatórios</h2>
-            <button id="generateReportBtn">Gerar Relatório</button>
-            <pre id="reportOutput"></pre>
         </section>
     </main>
     <footer><p>&copy; 2023 GeoLaudo.AI</p></footer>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.8.0/proj4.min.js"></script>
     <script src="https://unpkg.com/proj4leaflet@1.0.2/src/proj4leaflet.js"></script>
-    <script type="module" src="Js/app.js"></script>
+    <script src="Js/app.js"></script>
 </body>
 </html>
