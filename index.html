@@ -16,6 +16,7 @@
             <a href="#" data-section="upload">Upload de Dados</a>
             <a href="#" data-section="dados-lotes">Dados Lotes</a>
             <a href="#" data-section="relatorios">Relatórios</a>
+            <a href="#" data-section="instrucoes">Instruções</a>
         </nav>
         <button id="exportReportBtn">Exportar Relatório</button>
     </header>
@@ -36,16 +37,6 @@
             </div>
             <h2>Visualização Geoespacial</h2>
             <div id="mapid"></div>
-            <div class="map-legend">
-                <h3>Legenda do Mapa</h3>
-                <div class="legend-item"><input type="checkbox" id="toggleLotes" checked><label for="toggleLotes">Lotes</label></div>
-                <div class="legend-item"><input type="checkbox" id="togglePoligonais" checked><label for="togglePoligonais">Poligonais</label></div>
-                <div class="legend-item"><input type="checkbox" id="toggleAPP" checked><label for="toggleAPP">APP</label></div>
-            </div>
-            <h2>Análise de Riscos</h2>
-            <ul id="riskAnalysisSummary" class="risk-summary">
-                <li>Nenhum lote em risco identificado.</li>
-            </ul>
         </section>
         <section id="upload" class="container">
             <h2>Upload de Camadas</h2>
@@ -59,6 +50,14 @@
             <ul id="fileList"></ul>
             <button id="processAndLoadBtn">Processar</button>
             <p id="uploadStatus"></p>
+            <div id="utmConversionSettings" style="margin-top:20px; padding:15px; background-color:#eef4f7; border-radius:8px;">
+                <h3>Reprojeção UTM</h3>
+                <label><input type="checkbox" id="useUtmCheckbox"> Meus arquivos estão em UTM</label>
+                <div id="utmOptionsContainer" style="display:none;">
+                    <label>Zona: <input type="number" id="utmZoneInput" value="23"></label>
+                    <label>Hemisfério: <select id="utmHemisphereSelect"><option value="S">Sul</option><option value="N">Norte</option></select></label>
+                </div>
+            </div>
         </section>
         <section id="dados-lotes" class="container">
             <h2>Dados Detalhados</h2>
