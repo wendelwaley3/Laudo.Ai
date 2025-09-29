@@ -6,7 +6,7 @@
     <title>GeoLaudo.AI - Análise REURB</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="Css/style.css">
 </head>
 <body>
     <header>
@@ -63,8 +63,20 @@
         </section>
         <section id="upload" class="container">
             <h2>Upload de Camadas</h2>
-            <input type="file" id="geojsonFileInput" multiple>
+            <div class="upload-area">
+                <label for="geojsonFileInput" class="drag-drop-area">
+                    <p>Arraste e solte seus arquivos GeoJSON aqui</p>
+                    <p>ou clique para selecionar</p>
+                    <button type="button" id="selectFilesVisibleButton">Selecionar Arquivos</button>
+                </label>
+                <input type="file" id="geojsonFileInput" multiple style="display: none;">
+            </div>
+            <div class="uploaded-files-preview">
+                <h3>Arquivos Selecionados:</h3>
+                <ul id="fileList"></ul>
+            </div>
             <button id="processAndLoadBtn">Processar</button>
+            <p id="uploadStatus" class="status-message"></p>
         </section>
         <section id="dados-lotes" class="container">
             <h2>Dados Detalhados</h2>
