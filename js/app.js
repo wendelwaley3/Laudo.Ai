@@ -2,6 +2,7 @@ import { initMap } from './components/map.js';
 import { initUpload } from './components/upload.js';
 import { refreshDashboard, populateNucleusFilter } from './components/dashboard.js';
 import { fillLotesTable } from './components/table.js';
+import { initReport } from './components/report.js';
 
 const state = {
     map: null,
@@ -15,6 +16,7 @@ const state = {
 document.addEventListener('DOMContentLoaded', () => {
     initMap(state);
     initUpload(state);
+    initReport(state);
 
     document.querySelectorAll('nav a').forEach(link => {
         link.addEventListener('click', e => {
