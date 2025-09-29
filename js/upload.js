@@ -1,25 +1,19 @@
 import { reprojectGeoJSONFromUTM } from '../utils.js';
-import { styleLote, onEachLoteFeature, styleApp, stylePoligonal } from './layers.js';
-import { refreshDashboard, populateNucleusFilter } from './dashboard.js';
+import { styleLote, onEachLoteFeature } from './layers.js';
+import { refreshDashboard } from './dashboard.js';
 import { fillLotesTable } from './table.js';
 
 export function initUpload(state) {
     const fileInput = document.getElementById('geojsonFileInput');
     const processBtn = document.getElementById('processAndLoadBtn');
-    const statusEl = document.getElementById('uploadStatus');
 
     processBtn.addEventListener('click', async () => {
         const files = Array.from(fileInput.files || []);
-        if (files.length === 0) {
-            if (statusEl) statusEl.textContent = 'Nenhum arquivo selecionado.';
-            return;
-        }
-        if (statusEl) statusEl.textContent = 'Processando...';
+        if (files.length === 0) return alert('Nenhum arquivo selecionado.');
 
         Object.values(state.layers).forEach(layer => layer.clearLayers());
         state.allLotes = [];
         state.allRisco = [];
-        state.nucleusSet.clear();
 
         try {
             for (const file of files) {
@@ -31,10 +25,6 @@ export function initUpload(state) {
                     state.allRisco.push(...geojsonData.features);
                 } else if (name.includes('lote')) {
                     state.allLotes.push(...geojsonData.features);
-                } else if (name.includes('app')) {
-                    L.geoJSON(geojsonData, { style: styleApp }).addTo(state.layers.app);
-                } else if (name.includes('poligonal')) {
-                    L.geoJSON(geojsonData, { style: stylePoligonal }).addTo(state.layers.poligonais);
                 }
             }
             
@@ -49,21 +39,16 @@ export function initUpload(state) {
             state.allLotes = Array.from(lotesMap.values());
 
             L.geoJSON(state.allLotes, { style: styleLote, onEachFeature: onEachLoteFeature }).addTo(state.layers.lotes);
-            state.allLotes.forEach(f => {
-                if (f.properties.desc_nucleo) state.nucleusSet.add(f.properties.desc_nucleo);
-            });
 
             const allLayersGroup = L.featureGroup(Object.values(state.layers));
             if (allLayersGroup.getLayers().length > 0) state.map.fitBounds(allLayersGroup.getBounds());
 
-            populateNucleusFilter(state);
             refreshDashboard(state);
             fillLotesTable(state);
 
-            if (statusEl) statusEl.textContent = 'Dados carregados com sucesso!';
         } catch (e) {
-            if (statusEl) statusEl.textContent = `Erro: ${e.message}`;
             console.error(e);
+            alert(`Erro: ${e.message}`);
         }
     });
 }
