@@ -1,4 +1,4 @@
-import { formatBRL } from './utils.js';
+import { formatBRL } from '../utils.js';
 
 export function styleLote(feature) {
     const grau = Number(feature.properties.grau);
