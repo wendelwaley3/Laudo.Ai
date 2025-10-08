@@ -1,12 +1,11 @@
-import { reprojectGeoJSONFromUTM } from '../utils.js';
 import { styleLote, onEachLoteFeature } from './layers.js';
-import { refreshDashboard } from './dashboard.js';
+import { refreshDashboard, populateNucleusFilter } from './dashboard.js';
 import { fillLotesTable } from './table.js';
 
 export function initUpload(state) {
     const fileInput = document.getElementById('geojsonFileInput');
     const processBtn = document.getElementById('processAndLoadBtn');
-
+    
     processBtn.addEventListener('click', async () => {
         const files = Array.from(fileInput.files || []);
         if (files.length === 0) return alert('Nenhum arquivo selecionado.');
@@ -43,6 +42,7 @@ export function initUpload(state) {
             const allLayersGroup = L.featureGroup(Object.values(state.layers));
             if (allLayersGroup.getLayers().length > 0) state.map.fitBounds(allLayersGroup.getBounds());
 
+            populateNucleusFilter(state);
             refreshDashboard(state);
             fillLotesTable(state);
 
