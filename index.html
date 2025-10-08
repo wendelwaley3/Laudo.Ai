@@ -16,7 +16,6 @@
             <a href="#" data-section="upload">Upload de Dados</a>
             <a href="#" data-section="dados-lotes">Dados Lotes</a>
         </nav>
-        <button id="exportReportBtn">Exportar Relatório</button>
     </header>
     <main>
         <section id="dashboard" class="container active">
@@ -35,13 +34,6 @@
             </div>
             <h2>Visualização Geoespacial</h2>
             <div id="mapid"></div>
-            <div class="map-legend">
-                <h3>Legenda do Mapa</h3>
-                <div class="legend-item"><input type="checkbox" id="toggleLotes" checked><label for="toggleLotes">Lotes</label></div>
-                <div class="legend-item"><input type="checkbox" id="togglePoligonais" checked><label for="togglePoligonais">Poligonais</label></div>
-                <div class="legend-item"><input type="checkbox" id="toggleAPP" checked><label for="toggleAPP">APP</label></div>
-                <div class="legend-item"><input type="checkbox" id="toggleRisco" checked><label for="toggleRisco">Risco</label></div>
-            </div>
         </section>
         <section id="upload" class="container">
             <h2>Upload de Camadas</h2>
@@ -60,8 +52,6 @@
     </main>
     <footer><p>&copy; 2023 GeoLaudo.AI</p></footer>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.8.0/proj4.min.js"></script>
-    <script src="https://unpkg.com/proj4leaflet@1.0.2/src/proj4leaflet.js"></script>
     <script type="module" src="Js/app.js"></script>
 </body>
 </html>
