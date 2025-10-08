@@ -4,13 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GeoLaudo.AI - Análise REURB</title>
-
-    <!-- Google Fonts: Inter (para um visual moderno) -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
-    <!-- Inclui o CSS do Leaflet (biblioteca de mapas) - SEM 'integrity' -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
-    <!-- Inclui seu CSS personalizado -->
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -20,14 +15,9 @@
             <a href="#" data-section="dashboard" class="active">Dashboard</a>
             <a href="#" data-section="upload">Upload de Dados</a>
             <a href="#" data-section="dados-lotes">Dados Lotes</a>
-            <a href="#" data-section="relatorios">Relatórios</a>
-            <a href="#" data-section="instrucoes">Instruções</a>
         </nav>
-        <button id="exportReportBtn">Exportar Relatório</button>
     </header>
-
     <main>
-        <!-- Dashboard Section -->
         <section id="dashboard" class="container active">
             <h2>Filtros de Análise</h2>
             <div class="filters">
@@ -36,34 +26,20 @@
                 </select>
                 <button id="applyFiltersBtn">Aplicar Filtros</button>
             </div>
-
             <div class="dashboard-cards">
                 <div class="card"><h3>Total de Lotes</h3><p id="totalLotes">0</p></div>
                 <div class="card error"><h3>Lotes em Risco</h3><p id="lotesRisco">0</p></div>
                 <div class="card warning"><h3>Lotes em APP</h3><p id="lotesApp">0</p></div>
                 <div class="card info"><h3>Custo de Intervenção</h3><p id="custoEstimado">R$ 0,00</p></div>
             </div>
-
             <h2>Visualização Geoespacial</h2>
             <div id="mapid"></div>
-
-            <div class="map-legend">
-                <h3>Legenda do Mapa</h3>
-                <div class="legend-item"><input type="checkbox" id="toggleLotes" checked><label for="toggleLotes">Lotes</label></div>
-                <div class="legend-item"><input type="checkbox" id="togglePoligonais" checked><label for="togglePoligonais">Poligonais</label></div>
-                <div class="legend-item"><input type="checkbox" id="toggleAPP" checked><label for="toggleAPP">APP</label></div>
-                <div class="legend-item"><input type="checkbox" id="toggleRisco" checked><label for="toggleRisco">Risco</label></div>
-            </div>
         </section>
-
-        <!-- Upload Section -->
         <section id="upload" class="container">
             <h2>Upload de Camadas</h2>
             <input type="file" id="geojsonFileInput" multiple>
             <button id="processAndLoadBtn">Processar</button>
         </section>
-
-        <!-- Dados Lotes Section -->
         <section id="dados-lotes" class="container">
             <h2>Dados Detalhados</h2>
             <table id="lotesDataTable">
@@ -73,25 +49,9 @@
                 <tbody></tbody>
             </table>
         </section>
-        
-        <!-- Outras seções (Relatórios, Instruções) -->
-        <section id="relatorios" class="container">
-            <h2>Gerador de Relatórios</h2>
-        </section>
-        <section id="instrucoes" class="container">
-            <h2>Instruções</h2>
-        </section>
     </main>
-
-    <footer>
-        <p>&copy; 2025 GeoLaudo.AI</p>
-    </footer>
-
-    <!-- Inclui o JS do Leaflet - SEM 'integrity' -->
+    <footer><p>&copy; 2023 GeoLaudo.AI</p></footer>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.8.0/proj4.min.js"></script>
-    <script src="https://unpkg.com/proj4leaflet@1.0.2/src/proj4leaflet.js"></script>
-    <!-- Inclui seu JS personalizado como MÓDULO -->
     <script type="module" src="Js/app.js"></script>
 </body>
 </html>
