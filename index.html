@@ -39,6 +39,19 @@
             <h2>Upload de Camadas</h2>
             <input type="file" id="geojsonFileInput" multiple>
             <button id="processAndLoadBtn">Processar</button>
+            <div id="utmConversionSettings" style="margin-top:20px;">
+                <h3>Configurações de Reprojeção UTM</h3>
+                <label><input type="checkbox" id="useUtmCheckbox"> Meus arquivos estão em UTM</label>
+                <div id="utmOptionsContainer" style="display:none;">
+                    <label>Zona: <input type="number" id="utmZoneInput" value="23"></label>
+                    <label>Hemisfério: 
+                        <select id="utmHemisphereSelect">
+                            <option value="S">Sul</option>
+                            <option value="N">Norte</option>
+                        </select>
+                    </label>
+                </div>
+            </div>
         </section>
         <section id="dados-lotes" class="container">
             <h2>Dados Detalhados</h2>
@@ -52,6 +65,8 @@
     </main>
     <footer><p>&copy; 2023 GeoLaudo.AI</p></footer>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.8.0/proj4.min.js"></script>
+    <script src="https://unpkg.com/proj4leaflet@1.0.2/src/proj4leaflet.js"></script>
     <script type="module" src="Js/app.js"></script>
 </body>
 </html>
