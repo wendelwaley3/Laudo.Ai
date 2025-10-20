@@ -4,13 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GeoLaudo.AI - Análise REURB</title>
-
-    <!-- Google Fonts: Inter (para um visual moderno) -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
-    <!-- Inclui o CSS do Leaflet (biblioteca de mapas) - SEM 'integrity' -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
-    <!-- Inclui seu CSS personalizado -->
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -53,45 +48,78 @@
                 <div class="legend-item"><input type="checkbox" id="togglePoligonais" checked><label for="togglePoligonais">Poligonais</label></div>
                 <div class="legend-item"><input type="checkbox" id="toggleAPP" checked><label for="toggleAPP">APP</label></div>
                 <div class="legend-item"><input type="checkbox" id="toggleRisco" checked><label for="toggleRisco">Risco</label></div>
+                <h4>Filtrar Risco por Grau:</h4>
+                <div class="legend-risk-filters">
+                    <label><input type="checkbox" class="risk-filter-checkbox" value="1" checked> Baixo (1)</label>
+                    <label><input type="checkbox" class="risk-filter-checkbox" value="2" checked> Médio (2)</label>
+                    <label><input type="checkbox" class="risk-filter-checkbox" value="3" checked> Alto (3)</label>
+                    <label><input type="checkbox" class="risk-filter-checkbox" value="4" checked> Muito Alto (4)</label>
+                </div>
             </div>
+
+            <h2>Análise de Riscos</h2>
+            <ul id="riskAnalysisSummary" class="risk-summary"></ul>
+            <h3>Resumo de Intervenções</h3>
+            <ul>
+                <li id="minCustoIntervencao">Custo Mínimo: R$ 0,00</li>
+                <li id="maxCustoIntervencao">Custo Máximo: R$ 0,00</li>
+            </ul>
         </section>
 
         <!-- Upload Section -->
         <section id="upload" class="container">
             <h2>Upload de Camadas</h2>
-            <input type="file" id="geojsonFileInput" multiple>
+            <div class="upload-area">
+                <label for="geojsonFileInput" class="drag-drop-area">
+                    <p>Arraste e solte ou clique para selecionar</p>
+                    <button type="button" id="selectFilesVisibleButton">Escolher Arquivos</button>
+                </label>
+                <input type="file" id="geojsonFileInput" multiple style="display: none;">
+            </div>
+            <ul id="fileList"></ul>
             <button id="processAndLoadBtn">Processar</button>
+            <p id="uploadStatus"></p>
+            <div id="utmConversionSettings" style="margin-top:20px;">
+                <h3>Reprojeção UTM</h3>
+                <label><input type="checkbox" id="useUtmCheckbox"> Meus arquivos estão em UTM</label>
+                <div id="utmOptionsContainer" style="display:none;">
+                    <label>Zona: <input type="number" id="utmZoneInput" value="23"></label>
+                    <label>Hemisfério: 
+                        <select id="utmHemisphereSelect">
+                            <option value="S">Sul</option>
+                            <option value="N">Norte</option>
+                        </select>
+                    </label>
+                </div>
+            </div>
         </section>
 
         <!-- Dados Lotes Section -->
         <section id="dados-lotes" class="container">
             <h2>Dados Detalhados</h2>
+            <div class="data-table-controls">
+                <input type="text" id="lotSearch" placeholder="Buscar lote...">
+                <button id="exportTableBtn">Exportar</button>
+            </div>
             <table id="lotesDataTable">
                 <thead>
-                    <tr><th>Código</th><th>Núcleo</th></tr>
+                    <tr><th>Código</th><th>Núcleo</th><th>Risco</th><th>Ações</th></tr>
                 </thead>
                 <tbody></tbody>
             </table>
         </section>
         
-        <!-- Outras seções (Relatórios, Instruções) -->
-        <section id="relatorios" class="container">
-            <h2>Gerador de Relatórios</h2>
-        </section>
-        <section id="instrucoes" class="container">
-            <h2>Instruções</h2>
-        </section>
+        <!-- Outras seções -->
+        <section id="informacoes-gerais" class="container"></section>
+        <section id="relatorios" class="container"></section>
+        <section id="instrucoes" class="container"></section>
     </main>
 
-    <footer>
-        <p>&copy; 2023 GeoLaudo.AI</p>
-    </footer>
+    <footer><p>&copy; 2023 GeoLaudo.AI</p></footer>
 
-    <!-- Inclui o JS do Leaflet - SEM 'integrity' -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.8.0/proj4.min.js"></script>
     <script src="https://unpkg.com/proj4leaflet@1.0.2/src/proj4leaflet.js"></script>
-    <!-- Inclui seu JS personalizado como MÓDULO -->
     <script type="module" src="Js/app.js"></script>
 </body>
 </html>
