@@ -10,7 +10,7 @@ export function initUpload(state) {
         const files = Array.from(fileInput.files || []);
         if (files.length === 0) return alert('Nenhum arquivo selecionado.');
 
-        Object.values(state.layers).forEach(layer => layer.clearLayers());
+        state.layers.lotes.clearLayers();
         state.allLotes = [];
         state.allRisco = [];
 
@@ -39,8 +39,7 @@ export function initUpload(state) {
 
             L.geoJSON(state.allLotes, { style: styleLote, onEachFeature: onEachLoteFeature }).addTo(state.layers.lotes);
 
-            const allLayersGroup = L.featureGroup(Object.values(state.layers));
-            if (allLayersGroup.getLayers().length > 0) state.map.fitBounds(allLayersGroup.getBounds());
+            if (state.layers.lotes.getLayers().length > 0) state.map.fitBounds(state.layers.lotes.getBounds());
 
             populateNucleusFilter(state);
             refreshDashboard(state);
